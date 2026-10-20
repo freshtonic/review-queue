@@ -42,8 +42,15 @@
 Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal has no graphics protocol, the tool uses Unicode half-blocks. A `--no-images` flag turns graphics off.
 
 - **Author avatars** in each row of the Queue. The tool caches them on disk.
-- **Detail panel**: a large avatar and a summary of the selected pull request.
-- **Empty-Queue reward**: an image, which can be animated, when the Queue is empty. For example, a random image from a folder that the user chooses.
+- **Detail panel**: a large avatar and a summary of the selected pull request: the full title, repository and number, author, draft, tier, Watched Team, Wait Time, Snooze, branches (`head → base`), labels, number of changed files, diff size, CI status of the last commit, and the first lines of the description. It shows on the right side only when the terminal is wide enough.
+- **Empty-Queue reward**: a built-in particle burst that lasts 0.5 seconds.
+  - Before each burst, the tool chooses one particle style at random: stars, smilies, hotdogs, cats, party, facehuggers, thumbs-up, diamonds, or a "FUCK YEAH" speech bubble. All particles in the burst use the sprite of that style.
+  - All particles start at the center of the pane. The color, size, rotation speed, velocity, and fade-out of each particle are chosen at random, each one independently, between fixed limits.
+  - Gravity pulls all particles down with the same constant acceleration, so they move in arcs.
+  - Sprites are pixel art in the code: one character means the particle's color, and the other characters are fixed colors.
+  - The burst plays when a poll changes the Queue from not empty to empty. It does not play at startup, and it does not play when a Snooze empties the Queue. After the burst, the screen shows "Nothing to review".
+  - The `p` key plays a random burst at any time, and the status bar shows the style for a short time. This is for quick changes to how the bursts look.
+  - If the terminal has no raster graphics, the burst uses ASCII glyphs for each style. They move, change color, and fade, but do not rotate.
 - **Arrival effect**: a short animation (about 1 second) on a row that just came into the Queue. This is not a bell.
 - No animated avatars.
 - The tool drives the animation: it uploads each frame once with its own image ID, and changes the placed image ID on each tick. It does not use the terminal-side animation commands of the protocol.
