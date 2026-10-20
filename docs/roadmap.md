@@ -32,6 +32,10 @@
   - `Custom…`: a typed duration, for example `2d` or `45m`.
 - Dismiss is a Snooze of 1 working day. It ends at the same time on the next working day.
 - Snoozes are kept in `~/.local/state/review-queue/snoozes.json`, with one Snooze for each pull request.
+- The status bar shows the number of snoozed requests. The `z` key shows the snoozed view: snoozed requests in their Priority Tiers, dimmed, with the end time of each Snooze. In that view, `u` ends the Snooze of the selected request, and `s` changes its end time.
+- The `s` key opens the snooze picker. The `d` key dismisses (a Snooze of 1 working day).
+- `Next morning` is the next start of a working day after now. At 07:00 on a working day, it is 09:00 the same day.
+- A personal @-mention is `@<login>` in the text of a comment or review, with no letter, digit, `-`, or `/` after it. A team mention (`@org/team`) does not count.
 
 ## v1.2 (delight)
 
