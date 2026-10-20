@@ -266,9 +266,9 @@ pub fn render(style: Style, states: &[ParticleState], width: u32, height: u32) -
 fn blend(pixel: &mut image::Rgba<u8>, color: [u8; 3], alpha: f32) {
     let below = pixel.0[3] as f32 / 255.0;
     let out = alpha + below * (1.0 - alpha);
-    for i in 0..3 {
-        let mixed = color[i] as f32 * alpha + pixel.0[i] as f32 * below * (1.0 - alpha);
-        pixel.0[i] = (mixed / out).round() as u8;
+    for (channel, &new) in pixel.0.iter_mut().zip(&color) {
+        let mixed = new as f32 * alpha + *channel as f32 * below * (1.0 - alpha);
+        *channel = (mixed / out).round() as u8;
     }
     pixel.0[3] = (out * 255.0).round() as u8;
 }
