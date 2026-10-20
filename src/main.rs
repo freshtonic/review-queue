@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 use review_queue::app::{Action, App, Effect, Event};
 use review_queue::config::{self, Config};
 use review_queue::ui::{self, ConfigView};
-use review_queue::{auth, github, queue};
+use review_queue::{auth, github, queue, snooze};
 
 /// A terminal UI that shows the GitHub pull requests that are waiting for your review.
 #[derive(Parser)]
@@ -151,6 +151,11 @@ async fn run(
             Effect::OpenUrl(url) => open_in_browser(&url),
             Effect::Refresh => start_poll(&mut poll_in_flight),
             Effect::Quit => return Ok(()),
+            Effect::SaveSnoozes(snoozes) => {
+                if let Err(e) = snooze::save(&snooze::store_path(), &snoozes) {
+                    app.error = Some(format!("cannot save snoozes: {e}"));
+                }
+            }
         }
     }
 }
@@ -166,6 +171,7 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Enter => Some(Action::Open),
         KeyCode::Char('r') => Some(Action::Refresh),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
+        KeyCode::Char('d') => Some(Action::Dismiss),
         KeyCode::Esc if app.show_help => Some(Action::ToggleHelp),
         KeyCode::Char('q') => Some(Action::Quit),
         _ => None,

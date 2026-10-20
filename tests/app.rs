@@ -198,3 +198,43 @@ fn while_help_is_open_movement_and_open_do_nothing_but_quit_still_quits() {
 
     assert_eq!(press(&mut app, Action::Quit), Effect::Quit);
 }
+
+use review_queue::snooze::Snooze;
+
+fn local(s: &str) -> Timestamp {
+    format!("{s}[Australia/Melbourne]")
+        .parse::<Zoned>()
+        .unwrap()
+        .timestamp()
+}
+
+fn snooze(number: u64, until: Timestamp) -> Snooze {
+    Snooze {
+        repo: "acme/widgets".into(),
+        number,
+        started_at: now().timestamp(),
+        until,
+    }
+}
+
+fn visible_numbers(app: &App) -> Vec<u64> {
+    app.queue.iter().map(|i| i.pull_request.number).collect()
+}
+
+#[test]
+fn dismiss_snoozes_the_selected_request_until_the_same_time_on_the_next_working_day() {
+    let mut app = app_with(&[1, 2]);
+
+    let effect = press(&mut app, Action::Dismiss);
+
+    assert_eq!(
+        effect,
+        Effect::SaveSnoozes(vec![snooze(1, local("2026-10-22T10:00"))])
+    );
+    assert_eq!(visible_numbers(&app), vec![2]);
+    assert_eq!(selected_number(&app), Some(2));
+    assert_eq!(
+        app.status(at("2026-10-20T09:01:00Z")),
+        "updated 1m ago · 1 pending · 1 snoozed"
+    );
+}
