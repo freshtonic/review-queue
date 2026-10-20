@@ -46,3 +46,13 @@ fn a_pull_request_that_requests_only_me_is_a_personal_first_review() {
     assert_eq!(queue[0].requested_at, at("2026-10-01T09:00:00Z"));
     assert_eq!(queue[0].team, None);
 }
+
+#[test]
+fn a_personal_request_after_my_prior_review_is_a_personal_re_review() {
+    let mut reviewed = requesting_me(pr(1), "2026-10-01T09:00:00Z");
+    reviewed.viewer_has_reviewed = true;
+
+    let queue = build_queue(&[reviewed], ME, &[]);
+
+    assert_eq!(queue[0].tier, PriorityTier::PersonalReReview);
+}

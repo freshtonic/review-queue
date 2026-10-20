@@ -71,7 +71,11 @@ pub fn build_queue(
                 .find(|r| r.reviewer == Reviewer::User(viewer.to_string()))?;
             Some(QueueItem {
                 pull_request: pr.clone(),
-                tier: PriorityTier::PersonalFirstReview,
+                tier: if pr.viewer_has_reviewed {
+                    PriorityTier::PersonalReReview
+                } else {
+                    PriorityTier::PersonalFirstReview
+                },
                 requested_at: personal.requested_at,
                 team: None,
             })
