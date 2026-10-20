@@ -108,6 +108,8 @@ pub struct App {
     max_scroll: usize,
     /// The pull request whose description `description_scroll` is for.
     scrolled: Option<(String, u64)>,
+    /// The rows that arrived at a poll, and when.
+    arrivals: Vec<((String, u64), Timestamp)>,
     pub working: WorkingTime,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
@@ -216,12 +218,25 @@ impl App {
                 return self.snooze_selected(SnoozeChoice::Dismiss, now);
             }
             Event::PollSucceeded { queue, at } => {
+                // At the first poll, every row is new, so none is an arrival.
+                let before: Option<Vec<(String, u64)>> = self
+                    .updated_at
+                    .map(|_| self.queue.iter().map(key).collect());
                 self.updated_at = Some(at);
                 self.error = None;
                 self.all = queue;
-                let before = self.snoozes.clone();
+                let snoozes_before = self.snoozes.clone();
                 self.refresh_view(at);
-                if self.snoozes != before {
+                self.arrivals
+                    .retain(|(_, started)| at.duration_since(*started) < ARRIVAL);
+                if let Some(before) = before {
+                    for item in &self.queue {
+                        if !before.contains(&key(item)) {
+                            self.arrivals.push((key(item), at));
+                        }
+                    }
+                }
+                if self.snoozes != snoozes_before {
                     return Effect::SaveSnoozes(self.snoozes.clone());
                 }
             }
@@ -237,6 +252,19 @@ impl App {
         } else {
             self.queue.get(self.selected)
         }
+    }
+
+    /// The rows that arrived at a recent poll, and how far their effect is, from 0 (just
+    /// arrived) to 1. A finished effect is not in the list.
+    pub fn arrival_progress(&self, now: Timestamp) -> Vec<((String, u64), f32)> {
+        self.arrivals
+            .iter()
+            .map(|(key, started)| {
+                let elapsed = now.duration_since(*started).as_secs_f32();
+                (key.clone(), elapsed / ARRIVAL.as_secs_f32())
+            })
+            .filter(|(_, progress)| (0.0..1.0).contains(progress))
+            .collect()
     }
 
     /// After each draw: whether the detail panel shows, and the largest description scroll.
@@ -414,6 +442,14 @@ fn short_weekday(day: Weekday) -> &'static str {
         Weekday::Saturday => "Sat",
         Weekday::Sunday => "Sun",
     }
+}
+
+/// The length of the arrival effect.
+const ARRIVAL: jiff::SignedDuration = jiff::SignedDuration::from_secs(1);
+
+/// The identity of a pull request in the Queue.
+fn key(item: &QueueItem) -> (String, u64) {
+    (item.pull_request.repo.clone(), item.pull_request.number)
 }
 
 /// The time from `since` to `now`, in its largest whole unit: "12s", "5m", "3h", "2d".

@@ -539,3 +539,71 @@ fn when_the_panel_is_hidden_the_focus_goes_back_to_the_list() {
     press(&mut app, Action::Down);
     assert_eq!(selected_number(&app), Some(2));
 }
+
+fn arrivals(app: &App, seconds: f64) -> Vec<(u64, f32)> {
+    let mut found: Vec<(u64, f32)> = app
+        .arrival_progress(later(seconds).timestamp())
+        .into_iter()
+        .map(|((_, number), progress)| (number, progress))
+        .collect();
+    found.sort_by_key(|(number, _)| *number);
+    found
+}
+
+fn later(seconds: f64) -> Zoned {
+    now()
+        .checked_add(jiff::SignedDuration::from_secs_f64(seconds))
+        .unwrap()
+}
+
+#[test]
+fn a_new_pull_request_at_a_poll_is_an_arrival_that_finishes_after_one_second() {
+    let mut app = App::default();
+    poll_now(&mut app, &[1]);
+
+    poll_now(&mut app, &[1, 2, 3]);
+
+    assert_eq!(arrivals(&app, 0.0), vec![(2, 0.0), (3, 0.0)]);
+    let halfway = arrivals(&app, 0.5);
+    assert!((halfway[0].1 - 0.5).abs() < 1e-3, "{halfway:?}");
+    assert!(arrivals(&app, 1.0).is_empty());
+}
+
+#[test]
+fn the_first_poll_has_no_arrivals() {
+    let mut app = App::default();
+
+    poll_now(&mut app, &[1, 2]);
+
+    assert!(arrivals(&app, 0.0).is_empty());
+}
+
+#[test]
+fn a_pull_request_back_from_a_snooze_is_an_arrival() {
+    // The snooze ends 30 seconds after the first poll.
+    let ends = later(30.0).timestamp();
+    let mut app = App::new(WorkingTime::default(), vec![snooze(1, ends)]);
+    poll_now(&mut app, &[1, 2]);
+    assert_eq!(visible_numbers(&app), vec![2]);
+
+    app.handle(
+        Event::PollSucceeded {
+            queue: [1, 2].iter().map(|&n| item(n)).collect(),
+            at: later(60.0).timestamp(),
+        },
+        &later(60.0),
+    );
+
+    assert_eq!(visible_numbers(&app), vec![1, 2]);
+    assert_eq!(arrivals(&app, 60.0), vec![(1, 0.0)]);
+}
+
+#[test]
+fn a_pull_request_that_was_already_visible_is_not_an_arrival() {
+    let mut app = App::default();
+    poll_now(&mut app, &[1, 2]);
+
+    poll_now(&mut app, &[2, 1]);
+
+    assert!(arrivals(&app, 0.0).is_empty());
+}
