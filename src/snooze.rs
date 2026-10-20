@@ -69,3 +69,25 @@ fn next_at(now: &Zoned, days: &[Weekday], at: Time) -> Timestamp {
         .find(|&candidate| candidate > now.timestamp())
         .unwrap_or_else(|| now.timestamp())
 }
+
+/// A duration that the user types: one or more of `<n>d`, `<n>h`, `<n>m`, for example `1h30m`.
+pub fn parse_duration(text: &str) -> Option<SignedDuration> {
+    let mut total = SignedDuration::ZERO;
+    let mut digits = String::new();
+    for c in text.trim().chars() {
+        if c.is_ascii_digit() {
+            digits.push(c);
+            continue;
+        }
+        let n: i64 = digits.parse().ok()?;
+        digits.clear();
+        let minutes = match c {
+            'd' => n.checked_mul(24 * 60)?,
+            'h' => n.checked_mul(60)?,
+            'm' => n,
+            _ => return None,
+        };
+        total = total.checked_add(SignedDuration::from_mins(minutes))?;
+    }
+    (digits.is_empty() && total > SignedDuration::ZERO).then_some(total)
+}

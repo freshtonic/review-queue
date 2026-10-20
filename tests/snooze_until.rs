@@ -99,3 +99,20 @@ fn dismiss_on_saturday_ends_at_the_same_time_on_monday() {
         local("2026-10-26T11:15").timestamp()
     );
 }
+
+use review_queue::snooze::parse_duration;
+
+#[test]
+fn a_typed_duration_is_days_hours_and_minutes() {
+    assert_eq!(parse_duration("45m"), Some(SignedDuration::from_mins(45)));
+    assert_eq!(parse_duration("2d"), Some(SignedDuration::from_hours(48)));
+    assert_eq!(parse_duration("1h30m"), Some(SignedDuration::from_mins(90)));
+    assert_eq!(parse_duration(" 3h "), Some(SignedDuration::from_hours(3)));
+}
+
+#[test]
+fn a_typed_duration_that_is_not_valid_or_is_zero_gives_nothing() {
+    for text in ["", "soon", "2", "h", "2x", "0m", "-1h", "1h 30m"] {
+        assert_eq!(parse_duration(text), None, "{text:?}");
+    }
+}
