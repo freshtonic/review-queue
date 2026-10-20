@@ -25,3 +25,12 @@ fn a_missing_file_loads_as_no_snoozes() {
 
     assert_eq!(load(&dir.path().join("snoozes.json")), Vec::<Snooze>::new());
 }
+
+#[test]
+fn a_damaged_file_loads_as_no_snoozes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("snoozes.json");
+    std::fs::write(&path, "{ not json").unwrap();
+
+    assert_eq!(load(&path), Vec::<Snooze>::new());
+}
