@@ -272,3 +272,48 @@ fn blend(pixel: &mut image::Rgba<u8>, color: [u8; 3], alpha: f32) {
     }
     pixel.0[3] = (out * 255.0).round() as u8;
 }
+
+/// A glyph of a particle, for terminals without raster graphics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsciiCell {
+    pub col: u16,
+    pub row: u16,
+    pub text: String,
+    pub color: [u8; 3],
+}
+
+/// The particles of a burst as glyphs on a pane of `cols` x `rows` cells.
+///
+/// The glyph is centered on the particle's cell and cut at the edges of the pane. Fading
+/// makes the color darker, and a nearly invisible particle is not shown. Glyphs do not turn.
+pub fn render_ascii(
+    style: Style,
+    states: &[ParticleState],
+    cols: u16,
+    rows: u16,
+) -> Vec<AsciiCell> {
+    let glyph: Vec<char> = style.ascii().chars().collect();
+    states
+        .iter()
+        .filter(|s| s.alpha >= 0.15)
+        .filter_map(|s| {
+            let row = (s.position.1 * rows as f32).floor();
+            if row < 0.0 || row >= rows as f32 {
+                return None;
+            }
+            let center = (s.position.0 * cols as f32).floor() as i32;
+            let start = center - glyph.len() as i32 / 2;
+            let first = (-start).max(0) as usize;
+            let last = (cols as i32 - start).clamp(0, glyph.len() as i32) as usize;
+            if first >= last {
+                return None;
+            }
+            Some(AsciiCell {
+                col: start.max(0) as u16,
+                row: row as u16,
+                text: glyph[first..last].iter().collect(),
+                color: s.color.map(|c| (c as f32 * s.alpha).round() as u8),
+            })
+        })
+        .collect()
+}
