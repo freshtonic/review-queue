@@ -163,6 +163,13 @@ pub fn spawn(style: Style, seed: u64) -> Burst {
     Burst { style, particles }
 }
 
+/// A burst of a random style.
+pub fn random(seed: u64) -> Burst {
+    let mut random = SplitMix64(seed);
+    let style = Style::ALL[random.between_usize(0..=Style::ALL.len() - 1)];
+    spawn(style, random.next())
+}
+
 impl Burst {
     /// The particles at `t` seconds after the start.
     pub fn at(&self, t: f32) -> Vec<ParticleState> {

@@ -463,3 +463,66 @@ fn unsnooze_in_the_main_view_does_nothing() {
     assert_eq!(press(&mut app, Action::Unsnooze), Effect::None);
     assert_eq!(snoozed_numbers(&app), vec![1]);
 }
+
+use review_queue::burst::Style;
+
+fn later(seconds: f64) -> Zoned {
+    now()
+        .checked_add(jiff::SignedDuration::from_secs_f64(seconds))
+        .unwrap()
+}
+
+#[test]
+fn party_plays_a_burst_of_a_random_style_for_half_a_second() {
+    let mut app = app_with(&[1]);
+
+    assert_eq!(press(&mut app, Action::Party), Effect::None);
+
+    let (burst, t) = app.burst_at(later(0.2).timestamp()).expect("a burst plays");
+    assert!(Style::ALL.contains(&burst.style));
+    assert!((t - 0.2).abs() < 1e-3);
+    assert!(app.burst_at(later(0.5).timestamp()).is_none());
+}
+
+#[test]
+fn the_status_shows_the_burst_style_for_three_seconds() {
+    let mut app = app_with(&[1]);
+    press(&mut app, Action::Party);
+    let style = app.burst_at(now().timestamp()).unwrap().0.style;
+
+    assert!(
+        app.status(later(2.9).timestamp())
+            .ends_with(&format!(" · {}", style.name()))
+    );
+    assert!(!app.status(later(3.1).timestamp()).contains(style.name()));
+}
+
+#[test]
+fn a_poll_that_empties_the_queue_plays_a_burst() {
+    let mut app = app_with(&[1]);
+
+    poll_now(&mut app, &[]);
+
+    assert!(app.burst_at(later(0.1).timestamp()).is_some());
+}
+
+#[test]
+fn an_empty_queue_at_startup_or_at_a_second_empty_poll_plays_no_burst() {
+    let mut app = App::default();
+    poll_now(&mut app, &[]);
+    assert!(app.burst_at(later(0.1).timestamp()).is_none());
+
+    poll_now(&mut app, &[]);
+    assert!(app.burst_at(later(0.1).timestamp()).is_none());
+}
+
+#[test]
+fn a_snooze_that_empties_the_queue_plays_no_burst() {
+    let mut app = app_with(&[1]);
+
+    press(&mut app, Action::Dismiss);
+    poll_now(&mut app, &[1]);
+
+    assert!(app.queue.is_empty());
+    assert!(app.burst_at(later(0.1).timestamp()).is_none());
+}
