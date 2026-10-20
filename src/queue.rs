@@ -60,7 +60,7 @@ pub struct QueueItem {
 pub fn build_queue(
     pull_requests: &[PullRequest],
     viewer: &str,
-    _watched_teams: &[String],
+    watched_teams: &[String],
 ) -> Vec<QueueItem> {
     pull_requests
         .iter()
@@ -68,17 +68,40 @@ pub fn build_queue(
             let personal = pr
                 .requests
                 .iter()
-                .find(|r| r.reviewer == Reviewer::User(viewer.to_string()))?;
-            Some(QueueItem {
-                pull_request: pr.clone(),
-                tier: if pr.viewer_has_reviewed {
+                .find(|r| matches!(&r.reviewer, Reviewer::User(login) if login == viewer));
+            if let Some(request) = personal {
+                let tier = if pr.viewer_has_reviewed {
                     PriorityTier::PersonalReReview
                 } else {
                     PriorityTier::PersonalFirstReview
-                },
-                requested_at: personal.requested_at,
-                team: None,
-            })
+                };
+                return Some(item(pr, tier, request.requested_at, None));
+            }
+
+            let (team, request) = pr.requests.iter().find_map(|r| match &r.reviewer {
+                Reviewer::Team(team) if watched_teams.contains(team) => Some((team, r)),
+                _ => None,
+            })?;
+            let tier = if pr.viewer_has_reviewed {
+                PriorityTier::TeamReReview
+            } else {
+                PriorityTier::TeamFirstReview
+            };
+            Some(item(pr, tier, request.requested_at, Some(team.clone())))
         })
         .collect()
+}
+
+fn item(
+    pr: &PullRequest,
+    tier: PriorityTier,
+    requested_at: Timestamp,
+    team: Option<String>,
+) -> QueueItem {
+    QueueItem {
+        pull_request: pr.clone(),
+        tier,
+        requested_at,
+        team,
+    }
 }
