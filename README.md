@@ -145,6 +145,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 
 **Removing an item.** To remove a pull request from the queue, submit your review, or ask the author to remove the request.
 
+**Detail panel.** In a terminal 140 columns or wider, a panel at the right shows the selected pull request: the author's avatar, the full title, the tier, the wait time, the snooze end, the branches, the number of changed files, the CI status of the last commit, the labels, and the description as plain text. With raster graphics, each row also starts with the author's avatar. Avatars are cached in `~/.cache/review-queue/avatars/` (or `$XDG_CACHE_HOME/review-queue/avatars/`) and downloaded again after 7 days.
+
 **Bursts.** When a poll empties the queue, a 0.5-second particle burst plays from the center of the pane, in a style chosen at random (stars, smilies, hotdogs, cats, party, facehuggers, thumbs-up, diamonds, or "FUCK YEAH"). Push `p` to play one at any time. In a terminal with the Kitty, Sixel, or iTerm2 graphics protocol (for example, Ghostty), the particles are raster sprites that turn as they fly. In other terminals, and with `--no-images`, they are ASCII glyphs.
 
 **Snooze.** A snooze hides a pull request until a time that you choose. Nothing is hidden forever: dismiss (`d`) is a snooze of 1 working day, at the same time on the next working day. A snooze ends early when either of these occurs after the snooze started:

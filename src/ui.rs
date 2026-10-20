@@ -13,9 +13,17 @@ use ratatui_image::Resize;
 use ratatui_image::picker::{Picker, ProtocolType};
 use ratatui_image::protocol::Protocol;
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use image::ImageReader;
+use ratatui::layout::Size;
+
 use crate::app::{App, Picker as SnoozePicker, short_duration};
+use crate::avatar;
 use crate::burst::{Burst, DURATION, render, render_ascii};
-use crate::queue::{PriorityTier, QueueItem};
+use crate::details::{description_lines, detail_fields, panel_layout};
+use crate::queue::{CiStatus, PriorityTier, QueueItem};
 
 /// The current config, as the help page shows it.
 pub struct ConfigView {
@@ -44,8 +52,25 @@ const BURST_FPS: f32 = 30.0;
 pub struct Graphics {
     /// `None` when the terminal has no raster graphics, or with `--no-images`.
     picker: Option<Picker>,
+    /// For the panel avatar when there are no raster graphics.
+    halfblocks: Picker,
     frames: Option<BurstFrames>,
+    avatar_dir: PathBuf,
+    /// The decoded avatars and their protocols. `None` when the file cannot be read.
+    avatars: HashMap<String, Option<Avatar>>,
 }
+
+struct Avatar {
+    image: DynamicImage,
+    row: Option<Protocol>,
+    panel: Option<Protocol>,
+}
+
+/// The size of the panel avatar, in cells. Cells are about twice as tall as wide.
+const PANEL_AVATAR: Size = Size {
+    width: 12,
+    height: 6,
+};
 
 /// The frames of one burst, each made when it is first needed. With Kitty, each frame is
 /// uploaded once, the first time that it shows.
@@ -56,11 +81,66 @@ struct BurstFrames {
 }
 
 impl Graphics {
-    pub fn new(picker: Option<Picker>) -> Self {
+    pub fn new(picker: Option<Picker>, avatar_dir: PathBuf) -> Self {
         Self {
             picker,
+            halfblocks: Picker::halfblocks(),
             frames: None,
+            avatar_dir,
+            avatars: HashMap::new(),
         }
+    }
+
+    /// The avatar file of `login` changed, so its images must be made again.
+    pub fn avatar_changed(&mut self, login: &str) {
+        self.avatars.remove(login);
+    }
+
+    fn avatar(&mut self, login: &str) -> Option<&mut Avatar> {
+        let path = avatar::path_for(&self.avatar_dir, login);
+        self.avatars
+            .entry(login.to_string())
+            .or_insert_with(|| {
+                let image = ImageReader::open(path)
+                    .ok()?
+                    .with_guessed_format()
+                    .ok()?
+                    .decode()
+                    .ok()?;
+                Some(Avatar {
+                    image,
+                    row: None,
+                    panel: None,
+                })
+            })
+            .as_mut()
+    }
+
+    /// The 2 x 1 cell avatar for a row. Only with raster graphics.
+    fn row_avatar(&mut self, login: &str) -> Option<&Protocol> {
+        let picker = self.picker.clone()?;
+        let avatar = self.avatar(login)?;
+        if avatar.row.is_none() {
+            avatar.row = picker
+                .new_protocol(avatar.image.clone(), Size::new(2, 1), Resize::Fit(None))
+                .ok();
+        }
+        avatar.row.as_ref()
+    }
+
+    /// The panel avatar: raster graphics, or else half-blocks.
+    fn panel_avatar(&mut self, login: &str) -> Option<&Protocol> {
+        let picker = self
+            .picker
+            .clone()
+            .unwrap_or_else(|| self.halfblocks.clone());
+        let avatar = self.avatar(login)?;
+        if avatar.panel.is_none() {
+            avatar.panel = picker
+                .new_protocol(avatar.image.clone(), PANEL_AVATAR, Resize::Fit(None))
+                .ok();
+        }
+        avatar.panel.as_ref()
     }
 
     pub fn description(&self) -> &'static str {
@@ -88,7 +168,16 @@ pub fn draw(
     .areas(frame.area());
 
     draw_title(frame, title, app, now);
-    draw_queue(frame, body, app, now);
+    let (list_width, panel_width) = panel_layout(body.width);
+    let [list, panel] = Layout::horizontal([
+        Constraint::Length(list_width),
+        Constraint::Length(panel_width.unwrap_or(0)),
+    ])
+    .areas(body);
+    draw_queue(frame, list, app, now, graphics);
+    if panel_width.is_some() {
+        draw_panel(frame, panel, app, now, graphics);
+    }
     let keys = match &app.picker {
         Some(picker) if picker.input.is_some() => "type a duration · enter snooze · esc cancel",
         Some(_) => "1–9 choose · esc cancel",
@@ -255,7 +344,7 @@ fn draw_title(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
     frame.render_widget(Paragraph::new(status).style(status_style), right);
 }
 
-fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
+fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics: &mut Graphics) {
     let empty = if app.show_snoozed {
         app.snoozed.is_empty()
     } else {
@@ -276,10 +365,13 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
         frame.render_widget(Paragraph::new(message).centered().bold(), middle);
         return;
     }
+    let with_avatars = graphics.picker.is_some();
     let width = area.width as usize;
     let mut lines: Vec<ListItem> = Vec::new();
     let mut selected_line = None;
     let mut index = 0;
+    // The list line of each row, and the login of its author.
+    let mut avatar_lines: Vec<(usize, String)> = Vec::new();
 
     // Each row: the item, the text of the last column, and whether it is dimmed.
     let rows: Vec<(&QueueItem, String, bool)> = if app.show_snoozed {
@@ -302,7 +394,10 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
             if index == app.selected {
                 selected_line = Some(lines.len());
             }
-            let mut line = row(item, last, width);
+            if with_avatars {
+                avatar_lines.push((lines.len(), item.pull_request.author.login.clone()));
+            }
+            let mut line = row(item, last, width, with_avatars);
             if *dim {
                 line = line.patch_style(Style::new().add_modifier(Modifier::DIM));
             }
@@ -316,6 +411,105 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
         .highlight_symbol("▶ ");
     let mut state = ListState::default().with_selected(selected_line);
     frame.render_stateful_widget(list, area, &mut state);
+
+    // The avatars go in the 2 cells after the highlight symbol, on the rows that show.
+    for (line, login) in avatar_lines {
+        let Some(offset) = line.checked_sub(state.offset()) else {
+            continue;
+        };
+        if offset >= area.height as usize {
+            continue;
+        }
+        if let Some(protocol) = graphics.row_avatar(&login) {
+            let cell = Rect::new(area.x + 2, area.y + offset as u16, 2, 1);
+            frame.render_widget(ratatui_image::Image::new(protocol), cell);
+        }
+    }
+}
+
+fn draw_panel(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics: &mut Graphics) {
+    let block = Block::new()
+        .borders(Borders::LEFT)
+        .border_style(Style::new().fg(Color::DarkGray));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(item) = app.selected_item() else {
+        return;
+    };
+    let inner = Rect {
+        x: inner.x + 1,
+        width: inner.width.saturating_sub(2),
+        ..inner
+    };
+    let pr = &item.pull_request;
+
+    // The avatar, with the title at its right.
+    let [avatar_area, title_area] = Layout::horizontal([
+        Constraint::Length(PANEL_AVATAR.width + 1),
+        Constraint::Min(0),
+    ])
+    .areas(Rect {
+        height: PANEL_AVATAR.height.min(inner.height),
+        ..inner
+    });
+    if let Some(protocol) = graphics.panel_avatar(&pr.author.login) {
+        frame.render_widget(ratatui_image::Image::new(protocol), avatar_area);
+    }
+    let title: Vec<Line> = description_lines(
+        &pr.title,
+        title_area.width as usize,
+        title_area.height as usize,
+    )
+    .into_iter()
+    .map(|l| Line::styled(l, Style::new().bold()))
+    .collect();
+    frame.render_widget(Paragraph::new(title), title_area);
+
+    // The fields, then the description.
+    let now_local = now.to_zoned(TimeZone::system());
+    let mut lines: Vec<Line> = vec![Line::raw("")];
+    for (name, value) in detail_fields(item, app.selected_snoozed_until(), &now_local) {
+        let mut spans = vec![Span::styled(
+            format!("{name:<9}"),
+            Style::new().fg(Color::Cyan),
+        )];
+        if name == "Labels" {
+            for label in &pr.details.labels {
+                let [r, g, b] = label.color;
+                // Dark text on light labels, light text on dark labels.
+                let light = (r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000 > 140;
+                let fg = if light { Color::Black } else { Color::White };
+                spans.push(Span::styled(
+                    format!(" {} ", label.name),
+                    Style::new().bg(Color::Rgb(r, g, b)).fg(fg),
+                ));
+                spans.push(Span::raw(" "));
+            }
+        } else {
+            let style = match (name, pr.details.ci) {
+                ("CI", CiStatus::Passing) => Style::new().fg(Color::Green),
+                ("CI", CiStatus::Failing) => Style::new().fg(Color::Red),
+                ("CI", CiStatus::Pending) => Style::new().fg(Color::Yellow),
+                _ => Style::new(),
+            };
+            spans.push(Span::styled(value, style));
+        }
+        lines.push(Line::from(spans));
+    }
+    lines.push(Line::raw(""));
+    lines.push(Line::styled("Description", Style::new().bold()));
+    let rest = Rect {
+        y: inner.y + PANEL_AVATAR.height,
+        height: inner.height.saturating_sub(PANEL_AVATAR.height),
+        ..inner
+    };
+    let room = (rest.height as usize).saturating_sub(lines.len());
+    let description = description_lines(&pr.details.body, rest.width as usize, room);
+    if description.is_empty() {
+        lines.push(Line::styled("No description.", Style::new().dark_gray()));
+    }
+    lines.extend(description.into_iter().map(Line::raw));
+    frame.render_widget(Paragraph::new(lines), rest);
 }
 
 fn tier_header(name: &str, count: usize, width: usize) -> Line<'static> {
@@ -325,7 +519,10 @@ fn tier_header(name: &str, count: usize, width: usize) -> Line<'static> {
 }
 
 /// `last` is the text of the last column: the Wait Time, or the end of a Snooze.
-fn row(item: &QueueItem, last: &str, width: usize) -> Line<'static> {
+/// With `avatar_slot`, the row starts with 3 empty cells for the avatar and a space.
+fn row(item: &QueueItem, last: &str, width: usize, avatar_slot: bool) -> Line<'static> {
+    let slot = if avatar_slot { 3 } else { 0 };
+    let width = width.saturating_sub(slot);
     let pr = &item.pull_request;
     let reference = format!("{}#{}", pr.repo, pr.number);
     let author = format!("@{}", pr.author.login);
@@ -356,6 +553,7 @@ fn row(item: &QueueItem, last: &str, width: usize) -> Line<'static> {
     let title_width = flexible.saturating_sub(1 + tags.chars().count());
 
     let mut spans = vec![
+        Span::raw(" ".repeat(slot)),
         Span::raw(format!("{:<REFERENCE$}", truncate(&reference, REFERENCE))),
         Span::raw(format!(
             " {:<title_width$}",

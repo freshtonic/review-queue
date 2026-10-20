@@ -15,7 +15,7 @@ use review_queue::app::{Action, App, Effect, Event};
 use review_queue::config::{self, Config};
 use review_queue::snooze::WorkingTime;
 use review_queue::ui::{self, ConfigView, Graphics};
-use review_queue::{auth, github, queue, snooze};
+use review_queue::{auth, avatar, github, queue, snooze};
 
 /// A terminal UI that shows the GitHub pull requests that are waiting for your review.
 #[derive(Parser)]
@@ -93,7 +93,7 @@ async fn main() -> ExitCode {
             .ok()
             .filter(|p| p.protocol_type() != ProtocolType::Halfblocks)
     };
-    let graphics = Graphics::new(picker);
+    let graphics = Graphics::new(picker, avatar::cache_dir());
     view.graphics = graphics.description();
     let result = run(terminal, config, working, token, view, graphics).await;
     ratatui::restore();
@@ -144,6 +144,9 @@ async fn run(
     let mut redraw_timer = tokio::time::interval(Duration::from_secs(1));
     // Redraw at the burst frame rate while a burst plays.
     let mut frame_timer = tokio::time::interval(Duration::from_millis(33));
+    // Avatar downloads: the login, and whether the file was written.
+    let (avatars_written, mut avatar_written) = mpsc::channel::<(String, bool)>(16);
+    let mut avatars_in_flight: std::collections::HashSet<String> = Default::default();
     let mut app = App::new(working, snooze::load(&snooze::store_path()));
     let mut poll_in_flight = false;
 
@@ -182,7 +185,33 @@ async fn run(
             }
             Some(event) = incoming.recv() => {
                 poll_in_flight = false;
+                if let Event::PollSucceeded { queue, .. } = &event {
+                    for item in queue {
+                        let author = &item.pull_request.author;
+                        let Some(url) = &author.avatar_url else { continue };
+                        let path = avatar::path_for(&avatar::cache_dir(), &author.login);
+                        if avatar::freshness(&path, std::time::SystemTime::now()) == avatar::Freshness::Fresh
+                            || !avatars_in_flight.insert(author.login.clone())
+                        {
+                            continue;
+                        }
+                        let (client, url, login, done) =
+                            (client.clone(), url.clone(), author.login.clone(), avatars_written.clone());
+                        tokio::spawn(async move {
+                            let written = download(&client, &url, &path).await.is_ok();
+                            let _ = done.send((login, written)).await;
+                        });
+                    }
+                }
                 app.handle(event, &Zoned::now())
+            }
+            Some((login, written)) = avatar_written.recv() => {
+                // A failed download is tried again at the next poll.
+                avatars_in_flight.remove(&login);
+                if written {
+                    graphics.avatar_changed(&login);
+                }
+                Effect::None
             }
             Some(Ok(TermEvent::Key(key))) = keys.next() => match action_for(key, &app) {
                 Some(action) => app.handle(Event::Action(action), &Zoned::now()),
@@ -240,6 +269,29 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('q') => Some(Action::Quit),
         _ => None,
     }
+}
+
+/// Downloads an avatar to `path`. It writes a temporary file and renames it, so that a
+/// half-written file never shows.
+async fn download(
+    client: &reqwest::Client,
+    url: &str,
+    path: &std::path::Path,
+) -> Result<(), String> {
+    let response = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, "review-queue")
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| e.to_string())?;
+    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let temporary = path.with_extension("png.tmp");
+    std::fs::write(&temporary, &bytes).map_err(|e| e.to_string())?;
+    std::fs::rename(&temporary, path).map_err(|e| e.to_string())
 }
 
 fn open_in_browser(url: &str) {
