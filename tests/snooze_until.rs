@@ -75,3 +75,27 @@ fn before_cob_friday_after_that_time_on_friday_is_next_friday() {
         local("2026-10-30T15:30").timestamp()
     );
 }
+
+#[test]
+fn dismiss_on_wednesday_ends_at_the_same_time_on_thursday() {
+    assert_eq!(
+        until(SnoozeChoice::Dismiss, "2026-10-21T11:15"),
+        local("2026-10-22T11:15").timestamp()
+    );
+}
+
+#[test]
+fn dismiss_on_friday_ends_at_the_same_time_on_monday() {
+    assert_eq!(
+        until(SnoozeChoice::Dismiss, "2026-10-23T11:15"),
+        local("2026-10-26T11:15").timestamp()
+    );
+}
+
+#[test]
+fn dismiss_on_saturday_ends_at_the_same_time_on_monday() {
+    assert_eq!(
+        until(SnoozeChoice::Dismiss, "2026-10-24T11:15"),
+        local("2026-10-26T11:15").timestamp()
+    );
+}

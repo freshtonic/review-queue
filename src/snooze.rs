@@ -50,7 +50,7 @@ pub fn snooze_until(choice: SnoozeChoice, now: &Zoned, working: &WorkingTime) ->
             &[day],
             working.end.saturating_sub(SignedDuration::from_hours(2)),
         ),
-        _ => now.timestamp(),
+        SnoozeChoice::Dismiss => next_at(now, &working.days, now.time()),
     }
 }
 
