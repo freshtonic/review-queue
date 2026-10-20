@@ -97,13 +97,14 @@ fn wrap(text: &str, width: usize, lines: &mut Vec<String>) {
     }
 }
 
-/// The widths of the list and the detail panel, for a terminal `width` columns wide.
-pub fn panel_layout(width: u16) -> (u16, Option<u16>) {
-    if width < 140 {
-        return (width, None);
+/// The heights of the list and of the detail panel below it, for a body `height` rows
+/// high. The panel shows at 24 rows or more and uses 40% of the height (at least 12 rows).
+pub fn panel_layout(height: u16) -> (u16, Option<u16>) {
+    if height < 24 {
+        return (height, None);
     }
-    let panel = (width as u32 * 40 / 100).max(50) as u16;
-    (width - panel, Some(panel))
+    let panel = (height as u32 * 40 / 100).max(12) as u16;
+    (height - panel, Some(panel))
 }
 
 /// The label and value of each row of the detail panel, except the title and the

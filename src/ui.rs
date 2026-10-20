@@ -168,14 +168,14 @@ pub fn draw(
     .areas(frame.area());
 
     draw_title(frame, title, app, now);
-    let (list_width, panel_width) = panel_layout(body.width);
-    let [list, panel] = Layout::horizontal([
-        Constraint::Length(list_width),
-        Constraint::Length(panel_width.unwrap_or(0)),
+    let (list_height, panel_height) = panel_layout(body.height);
+    let [list, panel] = Layout::vertical([
+        Constraint::Length(list_height),
+        Constraint::Length(panel_height.unwrap_or(0)),
     ])
     .areas(body);
     draw_queue(frame, list, app, now, graphics);
-    if panel_width.is_some() {
+    if panel_height.is_some() {
         draw_panel(frame, panel, app, now, graphics);
     }
     let keys = match &app.picker {
@@ -429,7 +429,7 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
 
 fn draw_panel(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics: &mut Graphics) {
     let block = Block::new()
-        .borders(Borders::LEFT)
+        .borders(Borders::TOP)
         .border_style(Style::new().fg(Color::DarkGray));
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -443,73 +443,99 @@ fn draw_panel(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
     };
     let pr = &item.pull_request;
 
+    // The summary (avatar, title, fields) at the left, and the description at the right.
+    // A narrow panel has the description below the summary.
+    const SUMMARY_WIDTH: u16 = 64;
+    let side_by_side = inner.width >= 100;
+    let (summary, description) = if side_by_side {
+        let [summary, _, description] = Layout::horizontal([
+            Constraint::Length(SUMMARY_WIDTH),
+            Constraint::Length(2),
+            Constraint::Min(0),
+        ])
+        .areas(inner);
+        (summary, description)
+    } else {
+        (inner, Rect::default())
+    };
+
     // The avatar, with the title at its right.
     let [avatar_area, title_area] = Layout::horizontal([
         Constraint::Length(PANEL_AVATAR.width + 1),
         Constraint::Min(0),
     ])
     .areas(Rect {
-        height: PANEL_AVATAR.height.min(inner.height),
-        ..inner
+        height: PANEL_AVATAR.height.min(summary.height),
+        ..summary
     });
     if let Some(protocol) = graphics.panel_avatar(&pr.author.login) {
         frame.render_widget(ratatui_image::Image::new(protocol), avatar_area);
     }
-    let title: Vec<Line> = description_lines(
-        &pr.title,
-        title_area.width as usize,
-        title_area.height as usize,
-    )
-    .into_iter()
-    .map(|l| Line::styled(l, Style::new().bold()))
-    .collect();
-    frame.render_widget(Paragraph::new(title), title_area);
 
-    // The fields, then the description.
+    // The title, then the fields, in the space at the right of the avatar and below it.
     let now_local = now.to_zoned(TimeZone::system());
-    let mut lines: Vec<Line> = vec![Line::raw("")];
+    let mut lines: Vec<Line> = description_lines(&pr.title, title_area.width as usize, 2)
+        .into_iter()
+        .map(|l| Line::styled(l, Style::new().bold()))
+        .collect();
     for (name, value) in detail_fields(item, app.selected_snoozed_until(), &now_local) {
-        let mut spans = vec![Span::styled(
-            format!("{name:<9}"),
-            Style::new().fg(Color::Cyan),
-        )];
-        if name == "Labels" {
-            for label in &pr.details.labels {
-                let [r, g, b] = label.color;
-                // Dark text on light labels, light text on dark labels.
-                let light = (r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000 > 140;
-                let fg = if light { Color::Black } else { Color::White };
-                spans.push(Span::styled(
-                    format!(" {} ", label.name),
-                    Style::new().bg(Color::Rgb(r, g, b)).fg(fg),
-                ));
-                spans.push(Span::raw(" "));
-            }
-        } else {
-            let style = match (name, pr.details.ci) {
-                ("CI", CiStatus::Passing) => Style::new().fg(Color::Green),
-                ("CI", CiStatus::Failing) => Style::new().fg(Color::Red),
-                ("CI", CiStatus::Pending) => Style::new().fg(Color::Yellow),
-                _ => Style::new(),
-            };
-            spans.push(Span::styled(value, style));
-        }
-        lines.push(Line::from(spans));
+        lines.push(field_line(name, value, item));
     }
-    lines.push(Line::raw(""));
-    lines.push(Line::styled("Description", Style::new().bold()));
-    let rest = Rect {
-        y: inner.y + PANEL_AVATAR.height,
-        height: inner.height.saturating_sub(PANEL_AVATAR.height),
-        ..inner
+    let fields_area = Rect {
+        height: summary.height,
+        ..title_area
     };
-    let room = (rest.height as usize).saturating_sub(lines.len());
-    let description = description_lines(&pr.details.body, rest.width as usize, room);
-    if description.is_empty() {
-        lines.push(Line::styled("No description.", Style::new().dark_gray()));
+    let mut description_area = description;
+    if !side_by_side {
+        let used = lines.len() as u16 + 1;
+        description_area = Rect {
+            y: summary.y + used.max(PANEL_AVATAR.height),
+            height: summary.height.saturating_sub(used.max(PANEL_AVATAR.height)),
+            ..summary
+        };
     }
-    lines.extend(description.into_iter().map(Line::raw));
-    frame.render_widget(Paragraph::new(lines), rest);
+    frame.render_widget(Paragraph::new(lines), fields_area);
+
+    let mut text = vec![Line::styled("Description", Style::new().bold())];
+    let room = (description_area.height as usize).saturating_sub(1);
+    let body = description_lines(&pr.details.body, description_area.width as usize, room);
+    if body.is_empty() {
+        text.push(Line::styled("No description.", Style::new().dark_gray()));
+    }
+    text.extend(body.into_iter().map(Line::raw));
+    frame.render_widget(Paragraph::new(text), description_area);
+}
+
+/// One row of the panel: the name in a fixed column, then the value. Labels show as
+/// colored chips, and the CI status has the color of its state.
+fn field_line(name: &'static str, value: String, item: &QueueItem) -> Line<'static> {
+    let pr = &item.pull_request;
+    let mut spans = vec![Span::styled(
+        format!("{name:<9}"),
+        Style::new().fg(Color::Cyan),
+    )];
+    if name == "Labels" {
+        for label in &pr.details.labels {
+            let [r, g, b] = label.color;
+            // Dark text on light labels, light text on dark labels.
+            let light = (r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000 > 140;
+            let fg = if light { Color::Black } else { Color::White };
+            spans.push(Span::styled(
+                format!(" {} ", label.name),
+                Style::new().bg(Color::Rgb(r, g, b)).fg(fg),
+            ));
+            spans.push(Span::raw(" "));
+        }
+    } else {
+        let style = match (name, pr.details.ci) {
+            ("CI", CiStatus::Passing) => Style::new().fg(Color::Green),
+            ("CI", CiStatus::Failing) => Style::new().fg(Color::Red),
+            ("CI", CiStatus::Pending) => Style::new().fg(Color::Yellow),
+            _ => Style::new(),
+        };
+        spans.push(Span::styled(value, style));
+    }
+    Line::from(spans)
 }
 
 fn tier_header(name: &str, count: usize, width: usize) -> Line<'static> {
@@ -518,7 +544,6 @@ fn tier_header(name: &str, count: usize, width: usize) -> Line<'static> {
     Line::from(format!("{label}{fill}")).style(Style::new().fg(Color::Cyan).bold())
 }
 
-/// `last` is the text of the last column: the Wait Time, or the end of a Snooze.
 /// With `avatar_slot`, the row starts with 3 empty cells for the avatar and a space.
 fn row(item: &QueueItem, last: &str, width: usize, avatar_slot: bool) -> Line<'static> {
     let slot = if avatar_slot { 3 } else { 0 };
