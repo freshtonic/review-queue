@@ -61,6 +61,9 @@ pub const SIZE: std::ops::RangeInclusive<f32> = 0.05..=0.12;
 /// The fade starts at a time in this range and ends at a later time in this range.
 pub const FADE: std::ops::RangeInclusive<f32> = 0.15..=DURATION;
 
+/// The downward acceleration of every particle, in pane units per second squared.
+pub const GRAVITY: f32 = 4.0;
+
 const CENTER: (f32, f32) = (0.5, 0.5);
 
 pub fn spawn(style: Style, seed: u64) -> Burst {
@@ -91,13 +94,20 @@ impl Burst {
         self.particles
             .iter()
             .map(|p| ParticleState {
-                position: (CENTER.0 + p.velocity.0 * t, CENTER.1 + p.velocity.1 * t),
-                angle: p.angle,
+                position: (
+                    CENTER.0 + p.velocity.0 * t,
+                    CENTER.1 + p.velocity.1 * t + GRAVITY * t * t / 2.0,
+                ),
+                angle: p.angle + p.spin * t,
                 size: p.size,
                 color: p.color,
-                alpha: 1.0,
+                alpha: (1.0 - (t - p.fade_start) / (p.fade_end - p.fade_start)).clamp(0.0, 1.0),
             })
             .collect()
+    }
+
+    pub fn is_done(&self, t: f32) -> bool {
+        t >= DURATION
     }
 }
 
