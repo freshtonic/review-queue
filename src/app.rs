@@ -1,7 +1,8 @@
 //! The state of the TUI, and how it changes for each user action or poll result.
 //! It has no terminal dependencies.
 
-use jiff::{Timestamp, Zoned};
+use jiff::civil::Weekday;
+use jiff::{SignedDuration, Timestamp, Zoned};
 
 use crate::queue::QueueItem;
 use crate::snooze::{Snooze, SnoozeChoice, SnoozedItem, WorkingTime, apply_snoozes, snooze_until};
@@ -16,6 +17,10 @@ pub enum Action {
     Quit,
     /// Snooze the selected request for 1 working day.
     Dismiss,
+    /// Open the snooze picker.
+    Snooze,
+    /// Choose the snooze picker choice with this number (from 1).
+    Choose(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +46,20 @@ pub enum Effect {
     SaveSnoozes(Vec<Snooze>),
 }
 
+/// A choice in the snooze picker.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PickerChoice {
+    pub label: String,
+    /// The end time of the Snooze. `None` for the custom duration.
+    pub until: Option<Timestamp>,
+    choice: Option<SnoozeChoice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Picker {
+    pub choices: Vec<PickerChoice>,
+}
+
 #[derive(Debug, Default)]
 pub struct App {
     /// The Queue without the snoozed requests.
@@ -54,6 +73,8 @@ pub struct App {
     /// The error from the last poll, if it failed.
     pub error: Option<String>,
     pub show_help: bool,
+    /// The snooze picker, while it is open.
+    pub picker: Option<Picker>,
     pub working: WorkingTime,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
@@ -92,6 +113,22 @@ impl App {
             }
             Event::Action(Action::Refresh) => return Effect::Refresh,
             Event::Action(Action::Quit) => return Effect::Quit,
+            Event::Action(Action::Snooze) => {
+                if self.selected_item().is_some() {
+                    self.picker = Some(self.new_picker(now));
+                }
+            }
+            Event::Action(Action::Choose(number)) => {
+                let chosen = self
+                    .picker
+                    .as_ref()
+                    .and_then(|p| p.choices.get(number.wrapping_sub(1)))
+                    .and_then(|c| c.choice);
+                if let Some(choice) = chosen {
+                    self.picker = None;
+                    return self.snooze_selected(choice, now);
+                }
+            }
             Event::Action(Action::Dismiss) => {
                 return self.snooze_selected(SnoozeChoice::Dismiss, now);
             }
@@ -135,6 +172,45 @@ impl App {
         status
     }
 
+    fn new_picker(&self, now: &Zoned) -> Picker {
+        let choice = |label: String, choice: SnoozeChoice| PickerChoice {
+            label,
+            until: Some(snooze_until(choice, now, &self.working)),
+            choice: Some(choice),
+        };
+        let mut choices = vec![
+            choice(
+                "1 hour".into(),
+                SnoozeChoice::For(SignedDuration::from_hours(1)),
+            ),
+            choice(
+                "3 hours".into(),
+                SnoozeChoice::For(SignedDuration::from_hours(3)),
+            ),
+            choice("Next morning".into(), SnoozeChoice::NextMorning),
+        ];
+        // One choice for each of the next 5 working days, the soonest first.
+        let mut before_cob: Vec<PickerChoice> = self
+            .working
+            .days
+            .iter()
+            .map(|&day| {
+                choice(
+                    format!("Before COB {}", short_weekday(day)),
+                    SnoozeChoice::BeforeCob(day),
+                )
+            })
+            .collect();
+        before_cob.sort_by_key(|c| c.until);
+        choices.extend(before_cob.into_iter().take(5));
+        choices.push(PickerChoice {
+            label: "Custom…".into(),
+            until: None,
+            choice: None,
+        });
+        Picker { choices }
+    }
+
     fn snooze_selected(&mut self, choice: SnoozeChoice, now: &Zoned) -> Effect {
         let Some(item) = self.selected_item() else {
             return Effect::None;
@@ -166,6 +242,18 @@ impl App {
         self.queue = outcome.visible;
         self.snoozed = outcome.snoozed;
         self.snoozes = outcome.kept;
+    }
+}
+
+fn short_weekday(day: Weekday) -> &'static str {
+    match day {
+        Weekday::Monday => "Mon",
+        Weekday::Tuesday => "Tue",
+        Weekday::Wednesday => "Wed",
+        Weekday::Thursday => "Thu",
+        Weekday::Friday => "Fri",
+        Weekday::Saturday => "Sat",
+        Weekday::Sunday => "Sun",
     }
 }
 

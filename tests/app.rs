@@ -274,3 +274,46 @@ fn a_poll_that_changes_no_snooze_saves_nothing() {
 
     assert_eq!(poll_now(&mut app, &[1, 2]), Effect::None);
 }
+
+#[test]
+fn snooze_opens_a_picker_with_numbered_choices_and_their_end_times() {
+    let mut app = app_with(&[1]);
+
+    assert_eq!(press(&mut app, Action::Snooze), Effect::None);
+
+    let picker = app.picker.as_ref().expect("the picker is open");
+    let choices: Vec<(&str, Option<Timestamp>)> = picker
+        .choices
+        .iter()
+        .map(|c| (c.label.as_str(), c.until))
+        .collect();
+    assert_eq!(
+        choices,
+        vec![
+            ("1 hour", Some(local("2026-10-21T11:00"))),
+            ("3 hours", Some(local("2026-10-21T13:00"))),
+            ("Next morning", Some(local("2026-10-22T09:00"))),
+            ("Before COB Wed", Some(local("2026-10-21T15:30"))),
+            ("Before COB Thu", Some(local("2026-10-22T15:30"))),
+            ("Before COB Fri", Some(local("2026-10-23T15:30"))),
+            ("Before COB Mon", Some(local("2026-10-26T15:30"))),
+            ("Before COB Tue", Some(local("2026-10-27T15:30"))),
+            ("Custom…", None),
+        ]
+    );
+}
+
+#[test]
+fn choosing_a_numbered_choice_snoozes_the_selected_request_and_closes_the_picker() {
+    let mut app = app_with(&[1, 2]);
+    press(&mut app, Action::Snooze);
+
+    let effect = press(&mut app, Action::Choose(2));
+
+    assert_eq!(
+        effect,
+        Effect::SaveSnoozes(vec![snooze(1, local("2026-10-21T13:00"))])
+    );
+    assert!(app.picker.is_none());
+    assert_eq!(visible_numbers(&app), vec![2]);
+}
