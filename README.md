@@ -159,3 +159,7 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 - A comment or review mentions you personally (`@your-login`). A mention of a team does not end a snooze.
 
 The status bar shows the number of snoozed pull requests. Push `z` to see them, with the end time of each snooze. The snoozes are kept in `~/.local/state/review-queue/snoozes.json` (or `$XDG_STATE_HOME/review-queue/snoozes.json`). When a pull request leaves the queue, its snooze is deleted.
+
+## License
+
+MIT. Refer to [LICENSE](LICENSE).
