@@ -1,0 +1,270 @@
+{
+  "data": {
+    "viewer": {
+      "login": "me"
+    },
+    "search": {
+      "nodes": [
+        {
+          "__typename": "PullRequest",
+          "repository": {
+            "nameWithOwner": "acme/widgets"
+          },
+          "number": 1,
+          "title": "PR 1",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": {
+            "__typename": "User",
+            "login": "alice",
+            "avatarUrl": "https://avatars.example/alice"
+          },
+          "viewerLatestReview": null,
+          "reviewRequests": {
+            "nodes": [
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-01T09:00:00Z",
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000001"
+        },
+        {
+          "__typename": "PullRequest",
+          "repository": {
+            "nameWithOwner": "acme/legacy"
+          },
+          "number": 2,
+          "title": "PR 2",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": {
+            "__typename": "User",
+            "login": "alice",
+            "avatarUrl": "https://avatars.example/alice"
+          },
+          "viewerLatestReview": null,
+          "reviewRequests": {
+            "nodes": [
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-02T09:00:00Z",
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000002"
+        },
+        {
+          "__typename": "PullRequest",
+          "repository": {
+            "nameWithOwner": "acme/widgets"
+          },
+          "number": 3,
+          "title": "PR 3",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": {
+            "__typename": "Bot",
+            "login": "Renovate[bot]",
+            "avatarUrl": "https://avatars.example/Renovate[bot]"
+          },
+          "viewerLatestReview": null,
+          "reviewRequests": {
+            "nodes": [
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-03T09:00:00Z",
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000003"
+        },
+        {
+          "__typename": "PullRequest",
+          "repository": {
+            "nameWithOwner": "ACME/Legacy"
+          },
+          "number": 4,
+          "title": "PR 4",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": {
+            "__typename": "User",
+            "login": "bob",
+            "avatarUrl": "https://avatars.example/bob"
+          },
+          "viewerLatestReview": null,
+          "reviewRequests": {
+            "nodes": [
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-04T09:00:00Z",
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000004"
+        },
+        {
+          "__typename": "PullRequest",
+          "repository": {
+            "nameWithOwner": "acme/widgets"
+          },
+          "number": 5,
+          "title": "PR 5",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": {
+            "__typename": "User",
+            "login": "bob",
+            "avatarUrl": "https://avatars.example/bob"
+          },
+          "viewerLatestReview": null,
+          "reviewRequests": {
+            "nodes": [
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-05T09:00:00Z",
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000005"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}

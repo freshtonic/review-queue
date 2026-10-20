@@ -95,6 +95,7 @@ async fn main() -> ExitCode {
             &snapshot.pull_requests,
             &snapshot.viewer,
             &config.watched_teams,
+            &config.exclusions(),
         );
         let visible = snooze::apply_snoozes(all, &snooze::load(&snooze::store_path()), now).visible;
         if cli.count {
@@ -119,6 +120,19 @@ async fn main() -> ExitCode {
             "stale after {}h, overdue after {}h (working time)",
             config.stale_after_hours, config.overdue_after_hours
         ),
+        excluded: {
+            let all: Vec<String> = config
+                .exclude_repos
+                .iter()
+                .chain(&config.exclude_authors)
+                .cloned()
+                .collect();
+            if all.is_empty() {
+                "(none)".into()
+            } else {
+                all.join(", ")
+            }
+        },
         snooze_file: tilde(&snooze::store_path()),
         token_source,
         graphics: "",
@@ -204,6 +218,7 @@ async fn run(
         let client = client.clone();
         let token = token.clone();
         let watched_teams = config.watched_teams.clone();
+        let exclusions = config.exclusions();
         let results = results.clone();
         tokio::spawn(async move {
             let event = match github::fetch(&client, &token).await {
@@ -212,6 +227,7 @@ async fn run(
                         &snapshot.pull_requests,
                         &snapshot.viewer,
                         &watched_teams,
+                        &exclusions,
                     ),
                     at: Timestamp::now(),
                     incomplete: snapshot.next_page.is_some(),

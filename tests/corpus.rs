@@ -38,6 +38,7 @@ fn run(scenario: &Path) -> Result<(), String> {
         &snapshot.pull_requests,
         &snapshot.viewer,
         &config.watched_teams,
+        &config.exclusions(),
     );
 
     let mut actual: Vec<String> = Vec::new();

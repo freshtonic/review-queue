@@ -1,6 +1,6 @@
 use jiff::Timestamp;
 use review_queue::queue::{
-    Author, PriorityTier, PullRequest, Reviewer, ReviewerRequest, build_queue,
+    Author, Exclusions, PriorityTier, PullRequest, Reviewer, ReviewerRequest, build_queue,
 };
 
 const ME: &str = "me";
@@ -41,7 +41,7 @@ fn requesting_me(mut pr: PullRequest, at_time: &str) -> PullRequest {
 fn a_pull_request_that_requests_only_me_is_a_personal_first_review() {
     let prs = [requesting_me(pr(1), "2026-10-01T09:00:00Z")];
 
-    let queue = build_queue(&prs, ME, &[]);
+    let queue = build_queue(&prs, ME, &[], &Exclusions::default());
 
     assert_eq!(queue.len(), 1);
     assert_eq!(queue[0].pull_request.number, 1);
@@ -55,7 +55,7 @@ fn a_personal_request_after_my_prior_review_is_a_personal_re_review() {
     let mut reviewed = requesting_me(pr(1), "2026-10-01T09:00:00Z");
     reviewed.viewer_has_reviewed = true;
 
-    let queue = build_queue(&[reviewed], ME, &[]);
+    let queue = build_queue(&[reviewed], ME, &[], &Exclusions::default());
 
     assert_eq!(queue[0].tier, PriorityTier::PersonalReReview);
 }
@@ -76,7 +76,7 @@ fn watched(teams: &[&str]) -> Vec<String> {
 fn a_request_to_a_watched_team_is_a_team_request_that_names_the_team() {
     let prs = [requesting_team(pr(1), "acme/core", "2026-10-01T09:00:00Z")];
 
-    let queue = build_queue(&prs, ME, &watched(&["acme/core"]));
+    let queue = build_queue(&prs, ME, &watched(&["acme/core"]), &Exclusions::default());
 
     assert_eq!(queue.len(), 1);
     assert_eq!(queue[0].tier, PriorityTier::TeamFirstReview);
@@ -89,7 +89,12 @@ fn a_team_request_after_my_prior_review_is_a_team_re_review() {
     let mut reviewed = requesting_team(pr(1), "acme/core", "2026-10-01T09:00:00Z");
     reviewed.viewer_has_reviewed = true;
 
-    let queue = build_queue(&[reviewed], ME, &watched(&["acme/core"]));
+    let queue = build_queue(
+        &[reviewed],
+        ME,
+        &watched(&["acme/core"]),
+        &Exclusions::default(),
+    );
 
     assert_eq!(queue[0].tier, PriorityTier::TeamReReview);
 }
@@ -102,7 +107,7 @@ fn a_request_to_a_team_that_is_not_watched_is_not_in_the_queue() {
         "2026-10-01T09:00:00Z",
     )];
 
-    let queue = build_queue(&prs, ME, &watched(&["acme/core"]));
+    let queue = build_queue(&prs, ME, &watched(&["acme/core"]), &Exclusions::default());
 
     assert!(queue.is_empty());
 }
@@ -115,7 +120,12 @@ fn a_pull_request_that_requests_me_and_a_watched_team_is_one_personal_request() 
         "2026-10-01T09:00:00Z",
     );
 
-    let queue = build_queue(&[both], ME, &watched(&["acme/core"]));
+    let queue = build_queue(
+        &[both],
+        ME,
+        &watched(&["acme/core"]),
+        &Exclusions::default(),
+    );
 
     assert_eq!(queue.len(), 1);
     assert_eq!(queue[0].tier, PriorityTier::PersonalFirstReview);
@@ -140,6 +150,7 @@ fn the_queue_is_ordered_by_tier_personal_before_team_then_re_review_before_first
         &[team_first, team_re, personal_first, personal_re],
         ME,
         &watched(&["acme/core"]),
+        &Exclusions::default(),
     );
 
     assert_eq!(numbers(&queue), vec![4, 3, 2, 1]);
@@ -153,7 +164,7 @@ fn in_a_tier_the_request_that_has_waited_longest_is_first() {
         requesting_me(pr(3), "2026-10-02T09:00:00Z"),
     ];
 
-    let queue = build_queue(&prs, ME, &[]);
+    let queue = build_queue(&prs, ME, &[], &Exclusions::default());
 
     assert_eq!(numbers(&queue), vec![2, 3, 1]);
 }
@@ -177,6 +188,7 @@ fn a_bot_request_comes_after_all_other_requests_in_its_tier_but_stays_in_the_tie
         &[older_bot, newer_human, team_human],
         ME,
         &watched(&["acme/core"]),
+        &Exclusions::default(),
     );
 
     assert_eq!(numbers(&queue), vec![2, 1, 3]);
@@ -188,7 +200,12 @@ fn my_own_pull_request_is_not_in_the_queue_even_when_a_watched_team_is_requested
     let mut mine = requesting_team(pr(1), "acme/core", "2026-10-01T09:00:00Z");
     mine.author.login = ME.into();
 
-    let queue = build_queue(&[mine], ME, &watched(&["acme/core"]));
+    let queue = build_queue(
+        &[mine],
+        ME,
+        &watched(&["acme/core"]),
+        &Exclusions::default(),
+    );
 
     assert!(queue.is_empty());
 }
@@ -205,7 +222,12 @@ fn plain_lines_have_one_tab_separated_line_for_each_item_in_queue_order() {
         reviewer: Reviewer::Team("acme/platform".into()),
         requested_at: at("2026-10-18T09:00:00Z"),
     });
-    let queue = build_queue(&[team, reviewed], ME, &["acme/platform".into()]);
+    let queue = build_queue(
+        &[team, reviewed],
+        ME,
+        &["acme/platform".into()],
+        &Exclusions::default(),
+    );
 
     assert_eq!(
         plain_lines(&queue, at("2026-10-20T12:00:00Z")),

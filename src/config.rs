@@ -6,7 +6,7 @@ use jiff::SignedDuration;
 use jiff::civil::{Time, Weekday};
 use serde::Deserialize;
 
-use crate::queue::LatenessThresholds;
+use crate::queue::{Exclusions, LatenessThresholds};
 use crate::snooze::WorkingTime;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -26,6 +26,10 @@ pub struct Config {
     pub stale_after_hours: u64,
     /// The working hours after which a request is Overdue (its Wait Time is red).
     pub overdue_after_hours: u64,
+    /// Repositories never shown in the Queue, as "owner/name".
+    pub exclude_repos: Vec<String>,
+    /// Authors whose pull requests are never shown in the Queue, as logins.
+    pub exclude_authors: Vec<String>,
 }
 
 impl Default for Config {
@@ -40,6 +44,8 @@ impl Default for Config {
                 .to_vec(),
             stale_after_hours: 4,
             overdue_after_hours: 8,
+            exclude_repos: Vec::new(),
+            exclude_authors: Vec::new(),
         }
     }
 }
@@ -79,6 +85,13 @@ impl Config {
 }
 
 impl Config {
+    pub fn exclusions(&self) -> Exclusions {
+        Exclusions {
+            repos: self.exclude_repos.clone(),
+            authors: self.exclude_authors.clone(),
+        }
+    }
+
     pub fn lateness_thresholds(&self) -> LatenessThresholds {
         LatenessThresholds {
             stale_after: SignedDuration::from_hours(self.stale_after_hours as i64),

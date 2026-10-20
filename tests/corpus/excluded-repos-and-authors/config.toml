@@ -1,0 +1,3 @@
+# Exact matches, without regard to case.
+exclude_repos = ["acme/legacy"]
+exclude_authors = ["renovate[bot]"]

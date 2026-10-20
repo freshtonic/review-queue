@@ -95,6 +95,11 @@ work_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 # then overdue (red wait time).
 stale_after_hours = 4
 overdue_after_hours = 8
+
+# Repositories and authors that never go in the queue. The matches are exact, without
+# regard to case. Snooze and dismiss still work for one pull request at a time.
+exclude_repos = ["acme/legacy"]
+exclude_authors = ["renovate[bot]"]
 ```
 
 ## Help
@@ -139,6 +144,7 @@ In the snooze picker, push `1` to `9` to choose:
 - The pull request is open.
 - GitHub lists you, or one of your watched teams, as a requested reviewer.
 - You are not the author of the pull request.
+- The repository and the author are not in `exclude_repos` or `exclude_authors`.
 
 **Priority tiers.** The queue has four tiers. The tool shows them in this order:
 

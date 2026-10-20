@@ -93,14 +93,34 @@ pub struct QueueItem {
     pub team: Option<String>,
 }
 
+/// Repositories and authors that the user never wants in the Queue. The matches are
+/// exact, without regard to case.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Exclusions {
+    /// As "owner/name".
+    pub repos: Vec<String>,
+    /// As logins.
+    pub authors: Vec<String>,
+}
+
+impl Exclusions {
+    fn excludes(&self, pr: &PullRequest) -> bool {
+        let matches =
+            |list: &[String], value: &str| list.iter().any(|v| v.eq_ignore_ascii_case(value));
+        matches(&self.repos, &pr.repo) || matches(&self.authors, &pr.author.login)
+    }
+}
+
 pub fn build_queue(
     pull_requests: &[PullRequest],
     viewer: &str,
     watched_teams: &[String],
+    exclusions: &Exclusions,
 ) -> Vec<QueueItem> {
     let mut queue: Vec<QueueItem> = pull_requests
         .iter()
         .filter(|pr| pr.author.login != viewer)
+        .filter(|pr| !exclusions.excludes(pr))
         .filter_map(|pr| {
             let personal = pr
                 .requests

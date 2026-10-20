@@ -34,6 +34,8 @@ pub struct ConfigView {
     pub working_time: String,
     /// The aging thresholds, for example "stale after 4h, overdue after 8h (working time)".
     pub aging: String,
+    /// The excluded repositories and authors, or "(none)".
+    pub excluded: String,
     pub snooze_file: String,
     pub token_source: &'static str,
     /// The raster graphics protocol, or "none (ASCII)".
@@ -767,6 +769,7 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
         )),
         Line::raw(format!("  working time   {}", config.working_time)),
         Line::raw(format!("  aging          {}", config.aging)),
+        Line::raw(format!("  excluded       {}", config.excluded)),
         Line::raw(format!("  snooze file    {}", config.snooze_file)),
         Line::raw(format!("  token          {}", config.token_source)),
         Line::raw(format!("  graphics       {}", config.graphics)),
