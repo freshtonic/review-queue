@@ -3,6 +3,8 @@
 use jiff::civil::{Time, Weekday};
 use jiff::{SignedDuration, Timestamp, Zoned};
 
+use crate::queue::QueueItem;
+
 /// The user's working hours and working days, in the local time zone.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkingTime {
@@ -60,11 +62,7 @@ fn next_at(now: &Zoned, days: &[Weekday], at: Time) -> Timestamp {
     (0..15)
         .filter_map(|days| now.date().checked_add(jiff::Span::new().days(days)).ok())
         .filter(|date| days.contains(&date.weekday()))
-        .filter_map(|date| {
-            date.to_datetime(at)
-                .to_zoned(now.time_zone().clone())
-                .ok()
-        })
+        .filter_map(|date| date.to_datetime(at).to_zoned(now.time_zone().clone()).ok())
         .map(|zoned| zoned.timestamp())
         .find(|&candidate| candidate > now.timestamp())
         .unwrap_or_else(|| now.timestamp())
@@ -90,4 +88,55 @@ pub fn parse_duration(text: &str) -> Option<SignedDuration> {
         total = total.checked_add(SignedDuration::from_mins(minutes))?;
     }
     (digits.is_empty() && total > SignedDuration::ZERO).then_some(total)
+}
+
+/// A Snooze of one pull request.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Snooze {
+    pub repo: String,
+    pub number: u64,
+    pub started_at: Timestamp,
+    pub until: Timestamp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SnoozedItem {
+    pub item: QueueItem,
+    pub until: Timestamp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SnoozeOutcome {
+    /// The Queue without the snoozed requests.
+    pub visible: Vec<QueueItem>,
+    /// The snoozed requests, in Queue order.
+    pub snoozed: Vec<SnoozedItem>,
+    /// The Snoozes that are still active. The others have ended.
+    pub kept: Vec<Snooze>,
+}
+
+/// Hides the requests that have an active Snooze at `now`.
+pub fn apply_snoozes(queue: Vec<QueueItem>, snoozes: &[Snooze], now: Timestamp) -> SnoozeOutcome {
+    let mut outcome = SnoozeOutcome {
+        visible: Vec::new(),
+        snoozed: Vec::new(),
+        kept: Vec::new(),
+    };
+    for item in queue {
+        let pr = &item.pull_request;
+        let active = snoozes
+            .iter()
+            .find(|s| s.repo == pr.repo && s.number == pr.number && now < s.until);
+        match active {
+            Some(snooze) => {
+                outcome.kept.push(snooze.clone());
+                outcome.snoozed.push(SnoozedItem {
+                    until: snooze.until,
+                    item,
+                });
+            }
+            None => outcome.visible.push(item),
+        }
+    }
+    outcome
 }

@@ -13,7 +13,10 @@ fn until(choice: SnoozeChoice, now: &str) -> Timestamp {
 #[test]
 fn a_duration_ends_that_much_wall_clock_time_after_now() {
     assert_eq!(
-        until(SnoozeChoice::For(SignedDuration::from_hours(3)), "2026-10-21T14:10"),
+        until(
+            SnoozeChoice::For(SignedDuration::from_hours(3)),
+            "2026-10-21T14:10"
+        ),
         local("2026-10-21T17:10").timestamp()
     );
 }

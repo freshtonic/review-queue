@@ -3,12 +3,17 @@
 //! - `response.json`: a synthetic GraphQL response to the Queue query
 //! - `config.toml`: the user's config (optional; the default config if it is not there)
 //! - `expected.txt`: the Queue, one item per line: `<tier> <repo>#<number> [<team>]`
+//! - `snoozes.json` and `now.txt` (optional): the user's Snoozes, and the time of the poll.
+//!   With these, `expected.txt` also lists each snoozed request as
+//!   `snoozed <tier> <repo>#<number> [<team>] until <time>`, then each Snooze that is
+//!   still active as `keep <repo>#<number>`.
 //!
 //! The expected Queue is written by hand from the rules in `CONTEXT.md`.
 
 use std::path::Path;
 
 use review_queue::queue::{PriorityTier, QueueItem, build_queue};
+use review_queue::snooze::{Snooze, apply_snoozes};
 use review_queue::{config, github};
 
 fn tier_name(tier: PriorityTier) -> &'static str {
@@ -38,9 +43,41 @@ fn run(scenario: &Path) -> Result<(), String> {
         .map_err(|e| format!("expected.txt: {e}"))?;
 
     let snapshot = github::parse_response(&response).map_err(|e| e.0)?;
-    let queue = build_queue(&snapshot.pull_requests, &snapshot.viewer, &config.watched_teams);
+    let queue = build_queue(
+        &snapshot.pull_requests,
+        &snapshot.viewer,
+        &config.watched_teams,
+    );
 
-    let actual: Vec<String> = queue.iter().map(describe).collect();
+    let mut actual: Vec<String> = Vec::new();
+    let snoozes_path = scenario.join("snoozes.json");
+    if snoozes_path.exists() {
+        let snoozes: Vec<Snooze> = serde_json::from_str(
+            &std::fs::read_to_string(&snoozes_path).map_err(|e| format!("snoozes.json: {e}"))?,
+        )
+        .map_err(|e| format!("snoozes.json: {e}"))?;
+        let now = std::fs::read_to_string(scenario.join("now.txt"))
+            .map_err(|e| format!("now.txt: {e}"))?
+            .trim()
+            .parse()
+            .map_err(|e| format!("now.txt: {e}"))?;
+        let outcome = apply_snoozes(queue, &snoozes, now);
+        actual.extend(outcome.visible.iter().map(describe));
+        actual.extend(
+            outcome
+                .snoozed
+                .iter()
+                .map(|s| format!("snoozed {} until {}", describe(&s.item), s.until)),
+        );
+        actual.extend(
+            outcome
+                .kept
+                .iter()
+                .map(|s| format!("keep {}#{}", s.repo, s.number)),
+        );
+    } else {
+        actual.extend(queue.iter().map(describe));
+    }
     let expected: Vec<&str> = expected.lines().filter(|l| !l.trim().is_empty()).collect();
     if actual == expected {
         Ok(())
