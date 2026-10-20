@@ -11,9 +11,16 @@ use review_queue::ui::{self, ConfigView, Graphics};
 /// The largest image, on each side, that the tool sends.
 const MAX_SIDE: u32 = 1024;
 
-/// Draws the empty-queue view with Kitty graphics, and returns the size of each image
-/// that was sent, and the cells (x, y) that have an image placeholder.
-fn draw_empty_queue(cols: u16, rows: u16, font: (u16, u16)) -> (Vec<(u32, u32)>, Vec<(u16, u16)>) {
+/// What a draw of the empty-queue view sent to the terminal.
+struct Sent {
+    /// The size of each image, in pixels.
+    images: Vec<(u32, u32)>,
+    /// The cells (x, y) that have an image placeholder.
+    placed: Vec<(u16, u16)>,
+}
+
+/// Draws the empty-queue view with Kitty graphics.
+fn draw_empty_queue(cols: u16, rows: u16, font: (u16, u16)) -> Sent {
     // Deprecated for apps, but the only way to get a fixed font size without a terminal.
     #[allow(deprecated)]
     let mut picker = Picker::from_fontsize(FontSize {
@@ -68,14 +75,14 @@ fn draw_empty_queue(cols: u16, rows: u16, font: (u16, u16)) -> (Vec<(u32, u32)>,
         .flat_map(|y| (0..cols).map(move |x| (x, y)))
         .filter(|&(x, y)| buffer[(x, y)].symbol().contains('\u{10EEEE}'))
         .collect();
-    (images, placed)
+    Sent { images, placed }
 }
 
 #[test]
 fn no_image_is_larger_than_the_limit_and_the_image_is_a_centered_rectangle() {
     // 144 x 80 cells of 16 x 32 pixels is the size where the image disappeared in herdr.
     for (cols, rows, font) in [(144, 80, (16, 32)), (80, 24, (8, 16)), (320, 100, (8, 16))] {
-        let (images, placed) = draw_empty_queue(cols, rows, font);
+        let Sent { images, placed } = draw_empty_queue(cols, rows, font);
         assert!(!images.is_empty(), "{cols}x{rows}: no image was sent");
         for (w, h) in &images {
             assert!(
