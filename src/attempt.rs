@@ -27,7 +27,36 @@ const STAR_OUTLINE: [u8; 3] = [235, 170, 20];
 const TOP_TEXT: &str = "there was an attempt";
 const BOTTOM_TEXT: &str = "to keep on top of PR reviews";
 
+/// The image is drawn at this many times its size in each direction, then reduced, so
+/// that the edges of the shapes are smooth (supersampling).
+const SUPERSAMPLE: u32 = 4;
+
 pub fn render(width: u32, height: u32) -> RgbaImage {
+    reduce(
+        &draw(width * SUPERSAMPLE, height * SUPERSAMPLE),
+        width,
+        height,
+    )
+}
+
+/// Each output pixel is the mean of its `SUPERSAMPLE` × `SUPERSAMPLE` block.
+fn reduce(large: &RgbaImage, width: u32, height: u32) -> RgbaImage {
+    let n = SUPERSAMPLE * SUPERSAMPLE;
+    RgbaImage::from_fn(width, height, |x, y| {
+        let mut sum = [0u32; 4];
+        for dy in 0..SUPERSAMPLE {
+            for dx in 0..SUPERSAMPLE {
+                let p = large.get_pixel(x * SUPERSAMPLE + dx, y * SUPERSAMPLE + dy);
+                for (total, c) in sum.iter_mut().zip(p.0) {
+                    *total += c as u32;
+                }
+            }
+        }
+        Rgba(sum.map(|total| ((total + n / 2) / n) as u8))
+    })
+}
+
+fn draw(width: u32, height: u32) -> RgbaImage {
     let mut canvas = Canvas {
         image: RgbaImage::from_pixel(width, height, rgba(SKY)),
         w: width as f32,

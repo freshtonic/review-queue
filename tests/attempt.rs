@@ -122,3 +122,20 @@ fn the_text_art_fits_the_pane_or_is_left_out() {
     assert!(text_art(20, 24).is_empty());
     assert!(text_art(80, 5).is_empty());
 }
+
+#[test]
+fn the_edges_are_anti_aliased() {
+    for (w, h) in SIZES {
+        let image = render(w, h);
+        // The white text on the dark sky has grey pixels at its edges. Without
+        // anti-aliasing, each pixel is either the ink or the sky.
+        let edge = (0..(0.25 * h as f32) as u32)
+            .flat_map(|y| (0..w).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                let [r, g, b] = rgb(&image, x, y);
+                (60..200).contains(&r) && r.abs_diff(g) < 20 && r.abs_diff(b) < 20
+            })
+            .count();
+        assert!(edge > 50, "{w}x{h}: {edge} grey edge pixels at the text");
+    }
+}

@@ -21,3 +21,7 @@ toml = "1.1.8"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+# The empty-queue image is supersampled; without optimization, a render takes seconds.
+[profile.dev]
+opt-level = 1
