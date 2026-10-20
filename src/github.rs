@@ -31,6 +31,11 @@ pub struct ParseError(pub String);
 pub fn parse_response(body: &str) -> Result<Snapshot, ParseError> {
     let response: Response<q::ResponseData> =
         serde_json::from_str(body).map_err(|e| ParseError(e.to_string()))?;
+    let errors = response.errors.unwrap_or_default();
+    if !errors.is_empty() {
+        let messages: Vec<String> = errors.into_iter().map(|e| e.message).collect();
+        return Err(ParseError(messages.join("; ")));
+    }
     let data = response
         .data
         .ok_or_else(|| ParseError("the response has no data".into()))?;

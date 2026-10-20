@@ -1,0 +1,53 @@
+{
+  "data": {
+    "viewer": { "login": "me" },
+    "search": {
+      "nodes": [
+        { "__typename": "Issue" },
+        {
+          "__typename": "PullRequest",
+          "repository": { "nameWithOwner": "acme/widgets" },
+          "number": 7,
+          "title": "Bump serde",
+          "isDraft": false,
+          "additions": 3,
+          "deletions": 3,
+          "createdAt": "2026-09-01T00:00:00Z",
+          "author": { "__typename": "Bot", "login": "renovate" },
+          "viewerLatestReview": { "state": "COMMENTED" },
+          "reviewRequests": {
+            "nodes": [
+              { "requestedReviewer": { "__typename": "Team", "combinedSlug": "acme/core" } },
+              { "requestedReviewer": { "__typename": "User", "login": "me" } },
+              { "requestedReviewer": { "__typename": "Mannequin" } }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-01T09:00:00Z",
+                "requestedReviewer": { "__typename": "User", "login": "me" }
+              },
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-04T09:00:00Z",
+                "requestedReviewer": { "__typename": "User", "login": "me" }
+              },
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-02T09:00:00Z",
+                "requestedReviewer": { "__typename": "Team", "combinedSlug": "acme/core" }
+              },
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-03T09:00:00Z",
+                "requestedReviewer": { "__typename": "User", "login": "bob" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
