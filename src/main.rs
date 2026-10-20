@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 
 use review_queue::app::{Action, App, Effect, Event};
 use review_queue::config::{self, Config};
+use review_queue::snooze::WorkingTime;
 use review_queue::ui::{self, ConfigView};
 use review_queue::{auth, github, queue, snooze};
 
@@ -99,7 +100,7 @@ async fn run(
     let mut poll_timer = tokio::time::interval(Duration::from_secs(config.interval_secs));
     // Redraw each second, so that the ages in the status bar and the rows stay current.
     let mut redraw_timer = tokio::time::interval(Duration::from_secs(1));
-    let mut app = App::default();
+    let mut app = App::new(WorkingTime::default(), snooze::load(&snooze::store_path()));
     let mut poll_in_flight = false;
 
     let start_poll = |in_flight: &mut bool| {

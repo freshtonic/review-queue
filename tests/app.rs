@@ -238,3 +238,39 @@ fn dismiss_snoozes_the_selected_request_until_the_same_time_on_the_next_working_
         "updated 1m ago · 1 pending · 1 snoozed"
     );
 }
+
+use review_queue::snooze::WorkingTime;
+
+fn poll_now(app: &mut App, numbers: &[u64]) -> Effect {
+    app.handle(
+        Event::PollSucceeded {
+            queue: numbers.iter().map(|&n| item(n)).collect(),
+            at: now().timestamp(),
+        },
+        &now(),
+    )
+}
+
+#[test]
+fn stored_snoozes_hide_their_requests_and_ended_snoozes_are_dropped_and_saved() {
+    let active = snooze(1, local("2026-10-22T10:00"));
+    let ended = snooze(2, local("2026-10-21T09:00"));
+    let pull_request_gone = snooze(9, local("2026-10-22T10:00"));
+    let mut app = App::new(
+        WorkingTime::default(),
+        vec![active.clone(), ended, pull_request_gone],
+    );
+
+    let effect = poll_now(&mut app, &[1, 2, 3]);
+
+    assert_eq!(visible_numbers(&app), vec![2, 3]);
+    assert_eq!(effect, Effect::SaveSnoozes(vec![active]));
+}
+
+#[test]
+fn a_poll_that_changes_no_snooze_saves_nothing() {
+    let active = snooze(1, local("2026-10-22T10:00"));
+    let mut app = App::new(WorkingTime::default(), vec![active]);
+
+    assert_eq!(poll_now(&mut app, &[1, 2]), Effect::None);
+}

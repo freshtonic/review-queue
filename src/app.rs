@@ -61,6 +61,14 @@ pub struct App {
 }
 
 impl App {
+    pub fn new(working: WorkingTime, snoozes: Vec<Snooze>) -> Self {
+        Self {
+            working,
+            snoozes,
+            ..Self::default()
+        }
+    }
+
     pub fn handle(&mut self, event: Event, now: &Zoned) -> Effect {
         if self.show_help
             && let Event::Action(Action::Down | Action::Up | Action::Open | Action::Dismiss) = event
@@ -91,7 +99,11 @@ impl App {
                 self.updated_at = Some(at);
                 self.error = None;
                 self.all = queue;
+                let before = self.snoozes.clone();
                 self.refresh_view(at);
+                if self.snoozes != before {
+                    return Effect::SaveSnoozes(self.snoozes.clone());
+                }
             }
             Event::PollFailed { error } => self.error = Some(error),
         }
