@@ -150,3 +150,37 @@ fn in_a_tier_the_request_that_has_waited_longest_is_first() {
 
     assert_eq!(numbers(&queue), vec![2, 3, 1]);
 }
+
+fn by_bot(mut pr: PullRequest) -> PullRequest {
+    pr.author = Author {
+        login: "renovate".into(),
+        is_bot: true,
+    };
+    pr
+}
+
+#[test]
+fn a_bot_request_comes_after_all_other_requests_in_its_tier_but_stays_in_the_tier() {
+    let older_bot = by_bot(requesting_me(pr(1), "2026-10-01T09:00:00Z"));
+    let newer_human = requesting_me(pr(2), "2026-10-05T09:00:00Z");
+    let team_human = requesting_team(pr(3), "acme/core", "2026-10-01T09:00:00Z");
+
+    let queue = build_queue(
+        &[older_bot, newer_human, team_human],
+        ME,
+        &watched(&["acme/core"]),
+    );
+
+    assert_eq!(numbers(&queue), vec![2, 1, 3]);
+    assert_eq!(queue[1].tier, PriorityTier::PersonalFirstReview);
+}
+
+#[test]
+fn my_own_pull_request_is_not_in_the_queue_even_when_a_watched_team_is_requested() {
+    let mut mine = requesting_team(pr(1), "acme/core", "2026-10-01T09:00:00Z");
+    mine.author.login = ME.into();
+
+    let queue = build_queue(&[mine], ME, &watched(&["acme/core"]));
+
+    assert!(queue.is_empty());
+}

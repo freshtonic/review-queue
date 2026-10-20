@@ -64,6 +64,7 @@ pub fn build_queue(
 ) -> Vec<QueueItem> {
     let mut queue: Vec<QueueItem> = pull_requests
         .iter()
+        .filter(|pr| pr.author.login != viewer)
         .filter_map(|pr| {
             let personal = pr
                 .requests
@@ -90,7 +91,7 @@ pub fn build_queue(
             Some(item(pr, tier, request.requested_at, Some(team.clone())))
         })
         .collect();
-    queue.sort_by_key(|i| (i.tier, i.requested_at));
+    queue.sort_by_key(|i| (i.tier, i.pull_request.author.is_bot, i.requested_at));
     queue
 }
 
