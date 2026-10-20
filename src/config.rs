@@ -2,7 +2,10 @@
 
 use std::path::{Path, PathBuf};
 
+use jiff::civil::{Time, Weekday};
 use serde::Deserialize;
+
+use crate::snooze::WorkingTime;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -11,6 +14,12 @@ pub struct Config {
     pub interval_secs: u64,
     /// The Watched Teams, as "org/team-slug".
     pub watched_teams: Vec<String>,
+    /// The start of the working day, as "HH:MM".
+    pub work_start: String,
+    /// The end of the working day, as "HH:MM".
+    pub work_end: String,
+    /// The working days, as "Mon", "Tue", and so on.
+    pub work_days: Vec<String>,
 }
 
 impl Default for Config {
@@ -18,7 +27,46 @@ impl Default for Config {
         Self {
             interval_secs: 60,
             watched_teams: Vec::new(),
+            work_start: "09:00".into(),
+            work_end: "17:30".into(),
+            work_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+                .map(String::from)
+                .to_vec(),
         }
+    }
+}
+
+impl Config {
+    pub fn working_time(&self) -> Result<WorkingTime, String> {
+        let time = |text: &str| {
+            text.parse::<Time>().map_err(|_| {
+                format!("{text:?} is not a time. Use \"HH:MM\", for example \"09:00\".")
+            })
+        };
+        let day = |text: &String| match text.to_ascii_lowercase().as_str() {
+            "mon" => Ok(Weekday::Monday),
+            "tue" => Ok(Weekday::Tuesday),
+            "wed" => Ok(Weekday::Wednesday),
+            "thu" => Ok(Weekday::Thursday),
+            "fri" => Ok(Weekday::Friday),
+            "sat" => Ok(Weekday::Saturday),
+            "sun" => Ok(Weekday::Sunday),
+            _ => Err(format!(
+                "{text:?} is not a day. Use \"Mon\", \"Tue\", and so on."
+            )),
+        };
+        let working = WorkingTime {
+            start: time(&self.work_start)?,
+            end: time(&self.work_end)?,
+            days: self.work_days.iter().map(day).collect::<Result<_, _>>()?,
+        };
+        if working.start >= working.end {
+            return Err("work_start must be before work_end.".into());
+        }
+        if working.days.is_empty() {
+            return Err("work_days must have at least one day.".into());
+        }
+        Ok(working)
     }
 }
 

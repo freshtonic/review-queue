@@ -2,7 +2,7 @@
 
 A terminal UI that shows the GitHub pull requests that are waiting for your review, in priority order.
 
-> **Status:** v1 is in development. This README describes v1. The `docs/roadmap.md` file gives the plan for v1.1 (snooze) and v1.2 (graphics).
+> **Status:** v1 (the queue) and v1.1 (snooze) are complete. The `docs/roadmap.md` file gives the plan for v1.2 (graphics).
 
 ## Purpose
 
@@ -82,6 +82,11 @@ interval_secs = 60
 # Requests to teams that are not in this list are not shown, even when you are a member.
 # If the list is empty, the queue shows only requests to you personally.
 watched_teams = ["acme/platform"]
+
+# Your working time, for the snooze choices. The tool uses the local time zone of your computer.
+work_start = "09:00"
+work_end = "17:30"
+work_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 ```
 
 ## Help
@@ -96,8 +101,22 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `k` or `↑` | Move the selection up |
 | `Enter` | Open the selected pull request in the browser |
 | `r` | Refresh the queue now |
+| `s` | Snooze the selected pull request. In the snoozed view, change the end time of its snooze |
+| `d` | Dismiss: snooze the selected pull request for 1 working day |
+| `z` | Show or close the snoozed view |
+| `u` | In the snoozed view: end the snooze of the selected pull request |
 | `?` | Show or close the help page and the current config |
+| `esc` | Close the help page, the snoozed view, or the snooze picker |
 | `q` | Quit |
+
+In the snooze picker, push `1` to `9` to choose:
+
+| Choice | Snooze ends |
+|---|---|
+| 1 hour, 3 hours | After that time |
+| Next morning | At the next start of a working day. Before working hours, this is the same day |
+| Before COB *day* | 2 hours before the end of the working day, on each of the next 5 working days |
+| Custom… | After a duration that you type, for example `45m`, `3h`, `2d`, or `1h30m` |
 
 ### How the queue works
 
@@ -122,4 +141,11 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 
 **Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
 
-**No local state.** In v1, the queue shows only the state on GitHub. To remove a pull request from the queue, submit your review or ask the author to remove the request.
+**Removing an item.** To remove a pull request from the queue, submit your review, or ask the author to remove the request.
+
+**Snooze.** A snooze hides a pull request until a time that you choose. Nothing is hidden forever: dismiss (`d`) is a snooze of 1 working day, at the same time on the next working day. A snooze ends early when either of these occurs after the snooze started:
+
+- The author requests your review again (for you or for a watched team).
+- A comment or review mentions you personally (`@your-login`). A mention of a team does not end a snooze.
+
+The status bar shows the number of snoozed pull requests. Push `z` to see them, with the end time of each snooze. The snoozes are kept in `~/.local/state/review-queue/snoozes.json` (or `$XDG_STATE_HOME/review-queue/snoozes.json`). When a pull request leaves the queue, its snooze is deleted.

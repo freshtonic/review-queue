@@ -1,6 +1,6 @@
 # Roadmap
 
-## v1
+## v1 (complete)
 
 - The Queue mirrors GitHub. It keeps no local state.
 - Actions: move the selection, open the pull request in the browser.
@@ -14,7 +14,7 @@
 - Stack: `ratatui` + `crossterm`, `tokio`, `graphql_client` (with the GitHub schema checked in), `reqwest` (rustls), `serde` + TOML config at `~/.config/review-queue/config.toml`, `jiff` for time.
 - The priority logic is a pure function: GitHub pull request data and the current time go in, the ordered Queue comes out. It has no network or TUI dependencies.
 
-## v1.1
+## v1.1 (complete)
 
 - **Snooze** a Review Request until one of these:
   - a delay (for example, 2 hours)
@@ -24,11 +24,11 @@
   - a new request event for the user or a Watched Team (a re-request)
   - a new comment on the pull request that @-mentions the user personally (a team mention does not count)
 - Other activity, for example new commits, does not end a Snooze early.
-- Working time: the config file sets working hours (default 09:00–17:30) and working days (default Mon–Fri). The tool uses the system local time zone.
+- Working time: the config file sets working hours (`work_start`, `work_end`; default 09:00–17:30) and working days (`work_days`; default Mon–Fri). The tool uses the system local time zone.
 - Snooze presets:
   - `1h`, `3h`: wall-clock delays.
   - `Next morning`: the start of the next working day.
-  - `Before COB <day>`: 2 hours before the end of that working day.
+  - `Before COB <day>`: 2 hours before the end of that working day. The picker shows one for each of the next 5 working days.
   - `Custom…`: a typed duration, for example `2d` or `45m`.
 - Dismiss is a Snooze of 1 working day. It ends at the same time on the next working day.
 - Snoozes are kept in `~/.local/state/review-queue/snoozes.json`, with one Snooze for each pull request.

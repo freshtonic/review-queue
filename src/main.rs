@@ -41,6 +41,13 @@ async fn main() -> ExitCode {
         config.interval_secs = interval;
     }
     config.interval_secs = config.interval_secs.max(1);
+    let working = match config.working_time() {
+        Ok(working) => working,
+        Err(e) => {
+            eprintln!("review-queue: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    };
 
     let env_token = std::env::var("GITHUB_TOKEN").ok();
     let token_source = if env_token.as_deref().is_some_and(|t| !t.trim().is_empty()) {
@@ -60,11 +67,18 @@ async fn main() -> ExitCode {
         path: path.display().to_string(),
         interval_secs: config.interval_secs,
         watched_teams: config.watched_teams.clone(),
+        working_time: format!(
+            "{}–{}, {}",
+            config.work_start,
+            config.work_end,
+            config.work_days.join(" ")
+        ),
+        snooze_file: snooze::store_path().display().to_string(),
         token_source,
     };
 
     let terminal = ratatui::init();
-    let result = run(terminal, config, token, view).await;
+    let result = run(terminal, config, working, token, view).await;
     ratatui::restore();
 
     match result {
@@ -91,6 +105,7 @@ fn gh_auth_token() -> Result<String, String> {
 async fn run(
     mut terminal: DefaultTerminal,
     config: Config,
+    working: WorkingTime,
     token: String,
     view: ConfigView,
 ) -> std::io::Result<()> {
@@ -100,7 +115,7 @@ async fn run(
     let mut poll_timer = tokio::time::interval(Duration::from_secs(config.interval_secs));
     // Redraw each second, so that the ages in the status bar and the rows stay current.
     let mut redraw_timer = tokio::time::interval(Duration::from_secs(1));
-    let mut app = App::new(WorkingTime::default(), snooze::load(&snooze::store_path()));
+    let mut app = App::new(working, snooze::load(&snooze::store_path()));
     let mut poll_in_flight = false;
 
     let start_poll = |in_flight: &mut bool| {
@@ -165,15 +180,32 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
     if key.kind != KeyEventKind::Press {
         return None;
     }
+    if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+        return Some(Action::Quit);
+    }
+    // While the user types a custom duration, the keys are text.
+    if let Some(picker) = &app.picker {
+        return match (key.code, picker.input.is_some()) {
+            (KeyCode::Esc, _) => Some(Action::Cancel),
+            (KeyCode::Enter, true) => Some(Action::Confirm),
+            (KeyCode::Backspace, true) => Some(Action::Backspace),
+            (KeyCode::Char(c), true) => Some(Action::Type(c)),
+            (KeyCode::Char(c), false) => c.to_digit(10).map(|n| Action::Choose(n as usize)),
+            _ => None,
+        };
+    }
     match key.code {
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Action::Quit),
         KeyCode::Char('j') | KeyCode::Down => Some(Action::Down),
         KeyCode::Char('k') | KeyCode::Up => Some(Action::Up),
         KeyCode::Enter => Some(Action::Open),
         KeyCode::Char('r') => Some(Action::Refresh),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
-        KeyCode::Char('d') => Some(Action::Dismiss),
         KeyCode::Esc if app.show_help => Some(Action::ToggleHelp),
+        KeyCode::Esc if app.show_snoozed => Some(Action::ToggleSnoozedView),
+        KeyCode::Char('s') => Some(Action::Snooze),
+        KeyCode::Char('d') => Some(Action::Dismiss),
+        KeyCode::Char('z') => Some(Action::ToggleSnoozedView),
+        KeyCode::Char('u') => Some(Action::Unsnooze),
         KeyCode::Char('q') => Some(Action::Quit),
         _ => None,
     }
