@@ -528,3 +528,14 @@ fn a_snooze_that_empties_the_queue_plays_no_burst() {
     assert!(app.queue.is_empty());
     assert!(app.burst_at(later(0.1).timestamp()).is_none());
 }
+
+#[test]
+fn the_snooze_end_of_the_selected_request_is_known_only_in_the_snoozed_view() {
+    let until = local("2026-10-22T10:00");
+    let mut app = App::new(WorkingTime::default(), vec![snooze(1, until)]);
+    poll_now(&mut app, &[1, 2]);
+
+    assert_eq!(app.selected_snoozed_until(), None);
+    press(&mut app, Action::ToggleSnoozedView);
+    assert_eq!(app.selected_snoozed_until(), Some(until));
+}

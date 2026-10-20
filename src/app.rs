@@ -215,6 +215,14 @@ impl App {
         }
     }
 
+    /// The end of the Snooze of the selected request, in the snoozed view.
+    pub fn selected_snoozed_until(&self) -> Option<Timestamp> {
+        self.show_snoozed
+            .then(|| self.snoozed.get(self.selected))
+            .flatten()
+            .map(|s| s.until)
+    }
+
     fn view_len(&self) -> usize {
         if self.show_snoozed {
             self.snoozed.len()
