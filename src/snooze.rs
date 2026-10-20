@@ -41,9 +41,26 @@ pub enum SnoozeChoice {
 }
 
 /// The time when a Snooze that starts at `now` ends.
-pub fn snooze_until(choice: SnoozeChoice, now: &Zoned, _working: &WorkingTime) -> Timestamp {
+pub fn snooze_until(choice: SnoozeChoice, now: &Zoned, working: &WorkingTime) -> Timestamp {
     match choice {
         SnoozeChoice::For(duration) => now.timestamp() + duration,
+        SnoozeChoice::NextMorning => next_working(now, working, |_| working.start),
         _ => now.timestamp(),
     }
+}
+
+/// The first time after `now`, on a working day, at the time of day that `at` gives.
+fn next_working(now: &Zoned, working: &WorkingTime, at: impl Fn(Weekday) -> Time) -> Timestamp {
+    // Two weeks is enough to find any working day.
+    (0..15)
+        .filter_map(|days| now.date().checked_add(jiff::Span::new().days(days)).ok())
+        .filter(|date| working.days.contains(&date.weekday()))
+        .filter_map(|date| {
+            date.to_datetime(at(date.weekday()))
+                .to_zoned(now.time_zone().clone())
+                .ok()
+        })
+        .map(|zoned| zoned.timestamp())
+        .find(|&candidate| candidate > now.timestamp())
+        .unwrap_or_else(|| now.timestamp())
 }
