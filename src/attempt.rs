@@ -432,3 +432,44 @@ impl SplitMix64 {
         (self.next() >> 40) as f32 / (1u64 << 24) as f32
     }
 }
+
+/// One line of text art: pieces of text with their colors.
+pub type ArtLine = Vec<(String, [u8; 3])>;
+
+/// The image as colored text, for terminals without raster graphics. Empty when the pane
+/// is too small for it.
+///
+/// All lines have the same width, so that the shell can center the art as one block.
+pub fn text_art(cols: u16, rows: u16) -> Vec<ArtLine> {
+    const STAR: [&str; 7] = [
+        "    ,    ",
+        "   / \\   ",
+        "._/   \\_.",
+        " '.   .' ",
+        "  /.^.\\  ",
+        " '     ' ",
+        "         ",
+    ];
+    const WIDTH: usize = 36;
+    if (cols as usize) < WIDTH || rows < 11 {
+        return Vec::new();
+    }
+    let centered = |text: &str| {
+        let pad = (WIDTH - text.chars().count()) / 2;
+        format!("{:pad$}{text:<rest$}", "", rest = WIDTH - pad)
+    };
+    let mut art: Vec<ArtLine> = vec![
+        vec![(centered(TOP_TEXT), INK)],
+        vec![(" ".repeat(WIDTH), INK)],
+    ];
+    for (i, color) in RAINBOW.iter().enumerate() {
+        // A wobbly start for each band, so that the rainbow looks drawn by hand.
+        let start = [2, 1, 0, 1, 2, 3, 2][i];
+        let wave = format!("{}{}", " ".repeat(start), "~".repeat(24 - start));
+        let star = format!("{:<12}", STAR[i]);
+        art.push(vec![(wave, *color), (star, STAR_YELLOW)]);
+    }
+    art.push(vec![(" ".repeat(WIDTH), INK)]);
+    art.push(vec![(centered(BOTTOM_TEXT), INK)]);
+    art
+}

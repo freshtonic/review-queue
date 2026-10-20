@@ -74,3 +74,51 @@ fn the_sky_is_dark() {
         assert!(dark >= 90, "{w}x{h}: {dark} of 100 corner pixels are dark");
     }
 }
+
+use review_queue::attempt::text_art;
+
+fn plain(line: &[(String, [u8; 3])]) -> String {
+    line.iter().map(|(text, _)| text.as_str()).collect()
+}
+
+#[test]
+fn the_text_art_has_the_two_lines_of_text_around_the_rainbow_and_star() {
+    let art = text_art(80, 24);
+
+    let lines: Vec<String> = art.iter().map(|l| plain(l)).collect();
+    let top = lines
+        .iter()
+        .position(|l| l.contains("there was an attempt"))
+        .unwrap();
+    let bottom = lines
+        .iter()
+        .position(|l| l.contains("to keep on top of PR reviews"))
+        .unwrap();
+    assert!(top < bottom);
+
+    // The rainbow rows, from the top down, have the rainbow colors in order.
+    let band_colors: Vec<[u8; 3]> = art
+        .iter()
+        .filter_map(|line| {
+            line.iter()
+                .find(|(text, _)| text.contains('~'))
+                .map(|(_, c)| *c)
+        })
+        .collect();
+    assert_eq!(band_colors, RAINBOW.to_vec());
+    assert!(
+        art.iter()
+            .flatten()
+            .any(|(text, color)| *color == STAR_YELLOW && !text.trim().is_empty())
+    );
+}
+
+#[test]
+fn the_text_art_fits_the_pane_or_is_left_out() {
+    let art = text_art(80, 24);
+    assert!(art.len() <= 24);
+    assert!(art.iter().all(|l| plain(l).chars().count() <= 80));
+
+    assert!(text_art(20, 24).is_empty());
+    assert!(text_art(80, 5).is_empty());
+}
