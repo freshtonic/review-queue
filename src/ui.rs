@@ -20,9 +20,9 @@ use image::ImageReader;
 use ratatui::layout::Size;
 
 use crate::app::{App, Picker as SnoozePicker, short_duration};
-use crate::avatar;
 use crate::details::{description_lines, detail_fields, panel_layout};
 use crate::queue::{CiStatus, PriorityTier, QueueItem};
+use crate::{attempt, avatar};
 
 /// The current config, as the help page shows it.
 pub struct ConfigView {
@@ -53,6 +53,8 @@ pub struct Graphics {
     avatar_dir: PathBuf,
     /// The decoded avatars and their protocols. `None` when the file cannot be read.
     avatars: HashMap<String, Option<Avatar>>,
+    /// The empty-queue image, for the area size that it was made for.
+    attempt: Option<(Size, Protocol)>,
 }
 
 struct Avatar {
@@ -74,6 +76,7 @@ impl Graphics {
             halfblocks: Picker::halfblocks(),
             avatar_dir,
             avatars: HashMap::new(),
+            attempt: None,
         }
     }
 
@@ -163,13 +166,22 @@ pub fn draw(
     .areas(frame.area());
 
     draw_title(frame, title, app, now);
-    let (list_height, panel_height) = panel_layout(body.height);
+    // With an empty queue, the attempt image uses the whole body and there is no panel.
+    let attempt = !app.show_snoozed && app.queue.is_empty() && app.updated_at.is_some();
+    let (list_height, panel_height) = match attempt {
+        true => (body.height, None),
+        false => panel_layout(body.height),
+    };
     let [list, panel] = Layout::vertical([
         Constraint::Length(list_height),
         Constraint::Length(panel_height.unwrap_or(0)),
     ])
     .areas(body);
-    draw_queue(frame, list, app, now, graphics);
+    if attempt {
+        draw_attempt(frame, list, graphics);
+    } else {
+        draw_queue(frame, list, app, now, graphics);
+    }
     if panel_height.is_some() {
         drawn = Drawn {
             panel_shown: true,
@@ -278,6 +290,65 @@ fn draw_title(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
     };
     frame.render_widget(Paragraph::new(title).bold(), left);
     frame.render_widget(Paragraph::new(status).style(status_style), right);
+}
+
+/// The "there was an attempt" image at the size of the area, or its text art, or else a
+/// short message.
+fn draw_attempt(frame: &mut Frame, area: Rect, graphics: &mut Graphics) {
+    if let Some(picker) = &graphics.picker {
+        if graphics
+            .attempt
+            .as_ref()
+            .is_none_or(|(size, _)| *size != area.as_size())
+        {
+            let font = picker.font_size();
+            let image = attempt::render(
+                area.width as u32 * font.width as u32,
+                area.height as u32 * font.height as u32,
+            );
+            graphics.attempt = picker
+                .new_protocol(
+                    DynamicImage::ImageRgba8(image),
+                    area.as_size(),
+                    Resize::Fit(None),
+                )
+                .ok()
+                .map(|protocol| (area.as_size(), protocol));
+        }
+        if let Some((_, protocol)) = &graphics.attempt {
+            frame.render_widget(ratatui_image::Image::new(protocol), area);
+            return;
+        }
+    }
+    let art = attempt::text_art(area.width, area.height);
+    if art.is_empty() {
+        let [_, middle, _] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+        ])
+        .areas(area);
+        frame.render_widget(
+            Paragraph::new("Nothing to review").centered().bold(),
+            middle,
+        );
+        return;
+    }
+    let lines: Vec<Line> = art
+        .into_iter()
+        .map(|pieces| {
+            Line::from(
+                pieces
+                    .into_iter()
+                    .map(|(text, [r, g, b])| {
+                        Span::styled(text, Style::new().fg(Color::Rgb(r, g, b)).bold())
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    let block = centered(area, lines[0].width() as u16, lines.len() as u16);
+    frame.render_widget(Paragraph::new(lines), block);
 }
 
 fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics: &mut Graphics) {
