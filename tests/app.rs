@@ -89,3 +89,31 @@ fn refresh_and_quit_ask_the_shell_to_refresh_and_quit() {
     assert_eq!(press(&mut app, Action::Refresh), Effect::Refresh);
     assert_eq!(press(&mut app, Action::Quit), Effect::Quit);
 }
+
+fn poll(app: &mut App, numbers: &[u64]) {
+    app.handle(Event::PollSucceeded {
+        queue: numbers.iter().map(|&n| item(n)).collect(),
+        at: at("2026-10-20T09:01:00Z"),
+    });
+}
+
+#[test]
+fn after_a_poll_the_selection_stays_on_the_same_pull_request() {
+    let mut app = app_with(&[1, 2, 3]);
+    press(&mut app, Action::Down);
+
+    poll(&mut app, &[4, 3, 2, 1]);
+
+    assert_eq!(selected_number(&app), Some(2));
+}
+
+#[test]
+fn when_the_selected_pull_request_leaves_the_queue_the_selection_stays_in_the_queue() {
+    let mut app = app_with(&[1, 2, 3]);
+    press(&mut app, Action::Down);
+    press(&mut app, Action::Down);
+
+    poll(&mut app, &[1, 2]);
+
+    assert_eq!(selected_number(&app), Some(2));
+}

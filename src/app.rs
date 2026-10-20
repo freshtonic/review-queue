@@ -56,7 +56,15 @@ impl App {
             }
             Event::Action(Action::Refresh) => return Effect::Refresh,
             Event::Action(Action::Quit) => return Effect::Quit,
-            Event::PollSucceeded { queue, .. } => self.queue = queue,
+            Event::PollSucceeded { queue, .. } => {
+                let key = |i: &QueueItem| (i.pull_request.repo.clone(), i.pull_request.number);
+                let selected_key = self.selected_item().map(key);
+                self.selected = selected_key
+                    .and_then(|k| queue.iter().position(|i| key(i) == k))
+                    .unwrap_or(self.selected)
+                    .min(queue.len().saturating_sub(1));
+                self.queue = queue;
+            }
             _ => {}
         }
         Effect::None
