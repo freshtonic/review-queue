@@ -164,7 +164,11 @@
           },
           "headRefOid": "c0ffee0000000000000000000000000000000003"
         }
-      ]
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
     }
   }
 }

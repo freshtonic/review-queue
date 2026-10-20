@@ -1,4 +1,4 @@
-query ReviewRequests {
+query ReviewRequests($after: String) {
   viewer {
     login
   }
@@ -6,7 +6,12 @@ query ReviewRequests {
     query: "is:open is:pr review-requested:@me archived:false"
     type: ISSUE
     first: 100
+    after: $after
   ) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
     nodes {
       __typename
       ... on PullRequest {

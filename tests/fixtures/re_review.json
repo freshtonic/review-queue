@@ -61,7 +61,11 @@
           },
           "headRefOid": "2222222222222222222222222222222222222222"
         }
-      ]
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
     }
   }
 }

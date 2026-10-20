@@ -84,6 +84,12 @@ async fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
+        if snapshot.next_page.is_some() {
+            eprintln!(
+                "review-queue: not all requests are shown (over {})",
+                github::MAX_PAGES * 100
+            );
+        }
         let now = Timestamp::now();
         let all = queue::build_queue(
             &snapshot.pull_requests,
@@ -208,6 +214,7 @@ async fn run(
                         &watched_teams,
                     ),
                     at: Timestamp::now(),
+                    incomplete: snapshot.next_page.is_some(),
                 },
                 Err(error) => Event::PollFailed { error },
             };

@@ -55,3 +55,4 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
 - **Aging.** The Wait Time is amber when a request is Stale and red when it is Overdue. Only working time counts. The thresholds are `stale_after_hours` (default 4) and `overdue_after_hours` (default 8).
 - **Resizable detail panel.** The panel starts at 50% of the body height. `+` and `-` change it in steps of 10%, from 20% to 80%. The panel has at least 12 rows and the list at least 6. The size is not saved between sessions.
 - **Copy the link.** `y` copies the link that `Enter` opens, with OSC 52. The status bar says "copied the link" for 3 seconds.
+- **Paging.** A poll follows the pages of search results, up to 10 pages (1000 pull requests). If there are more, the status bar (and stderr, for `--once` and `--count`) says that not all requests are shown.

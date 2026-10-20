@@ -2,6 +2,7 @@
   "data": {
     "viewer": { "login": "me" },
     "search": {
+      "pageInfo": { "hasNextPage": false, "endCursor": null },
       "nodes": [
         {
           "__typename": "PullRequest",

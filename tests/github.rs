@@ -169,3 +169,13 @@ fn a_re_review_has_the_commit_of_the_viewers_last_review_and_the_head_commit() {
         "2222222222222222222222222222222222222222"
     );
 }
+
+#[test]
+fn a_response_with_more_results_has_the_cursor_of_the_next_page() {
+    let snapshot = parse_response(&fixture("next_page")).unwrap();
+    assert_eq!(snapshot.next_page.as_deref(), Some("Y3Vyc29yOjEwMA=="));
+    assert_eq!(snapshot.pull_requests.len(), 1);
+
+    let last = parse_response(&fixture("personal_request")).unwrap();
+    assert_eq!(last.next_page, None);
+}

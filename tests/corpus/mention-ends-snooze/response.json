@@ -249,7 +249,11 @@
           },
           "headRefOid": "c0ffee0000000000000000000000000000000004"
         }
-      ]
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
     }
   }
 }

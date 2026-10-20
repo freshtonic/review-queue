@@ -57,6 +57,8 @@ pub enum Event {
     PollSucceeded {
         queue: Vec<QueueItem>,
         at: Timestamp,
+        /// True when the poll stopped at its page limit, so some requests are not shown.
+        incomplete: bool,
     },
     PollFailed {
         error: String,
@@ -129,6 +131,8 @@ pub struct App {
     pub working: WorkingTime,
     /// When a request becomes Stale and Overdue.
     pub thresholds: LatenessThresholds,
+    /// True when the last good poll did not get all the results.
+    incomplete: bool,
     /// When the user last copied a link, for the status bar notice.
     copied_at: Option<Timestamp>,
     /// The whole Queue from the last good poll, with the snoozed requests.
@@ -253,7 +257,12 @@ impl App {
             Event::Action(Action::Dismiss) => {
                 return self.snooze_selected(SnoozeChoice::Dismiss, now);
             }
-            Event::PollSucceeded { queue, at } => {
+            Event::PollSucceeded {
+                queue,
+                at,
+                incomplete,
+            } => {
+                self.incomplete = incomplete;
                 // At the first poll, every row is new, so none is an arrival.
                 let before: Option<Vec<(String, u64)>> = self
                     .updated_at
@@ -346,6 +355,10 @@ impl App {
         );
         if !self.snoozed.is_empty() {
             status.push_str(&format!(" · {} snoozed", self.snoozed.len()));
+        }
+        if self.incomplete {
+            let limit = crate::github::MAX_PAGES * 100;
+            status.push_str(&format!(" · not all requests shown (over {limit})"));
         }
         if let Some(error) = &self.error {
             status.push_str(&format!(" · error: {error}"));

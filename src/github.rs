@@ -27,18 +27,41 @@ pub struct Snapshot {
     /// The login of the user.
     pub viewer: String,
     pub pull_requests: Vec<PullRequest>,
+    /// The cursor of the next page of results, if there are more.
+    pub next_page: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct ParseError(pub String);
 
-/// Runs the query against github.com.
+/// The most pages that one poll gets: 1000 pull requests.
+pub const MAX_PAGES: usize = 10;
+
+/// Runs the query against github.com, and follows the pages of results up to
+/// `MAX_PAGES`. If there were more, `next_page` of the result is set.
 pub async fn fetch(client: &reqwest::Client, token: &str) -> Result<Snapshot, String> {
+    let mut snapshot = fetch_page(client, token, None).await?;
+    for _ in 1..MAX_PAGES {
+        let Some(after) = snapshot.next_page.take() else {
+            break;
+        };
+        let page = fetch_page(client, token, Some(after)).await?;
+        snapshot.pull_requests.extend(page.pull_requests);
+        snapshot.next_page = page.next_page;
+    }
+    Ok(snapshot)
+}
+
+async fn fetch_page(
+    client: &reqwest::Client,
+    token: &str,
+    after: Option<String>,
+) -> Result<Snapshot, String> {
     let response = client
         .post("https://api.github.com/graphql")
         .bearer_auth(token)
         .header(reqwest::header::USER_AGENT, "review-queue")
-        .json(&ReviewRequests::build_query(q::Variables))
+        .json(&ReviewRequests::build_query(q::Variables { after }))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -61,6 +84,12 @@ pub fn parse_response(body: &str) -> Result<Snapshot, ParseError> {
     let data = response
         .data
         .ok_or_else(|| ParseError("the response has no data".into()))?;
+    let next_page = data
+        .search
+        .page_info
+        .has_next_page
+        .then(|| data.search.page_info.end_cursor.clone())
+        .flatten();
     let pull_requests = data
         .search
         .nodes
@@ -77,6 +106,7 @@ pub fn parse_response(body: &str) -> Result<Snapshot, ParseError> {
     Ok(Snapshot {
         viewer: data.viewer.login,
         pull_requests,
+        next_page,
     })
 }
 

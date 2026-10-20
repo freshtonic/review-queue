@@ -35,6 +35,7 @@ fn draw_empty_queue(cols: u16, rows: u16, font: (u16, u16)) -> Sent {
         Event::PollSucceeded {
             queue: vec![],
             at: now.timestamp(),
+            incomplete: false,
         },
         &now,
     );

@@ -157,7 +157,7 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 
 **Stale and overdue.** The wait time is amber when a request is stale, and red when it is overdue. Only working time counts: the working hours of your working days (`work_start`, `work_end`, `work_days`). By default, a request is stale after 4 working hours and overdue after 8.
 
-**Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
+**Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). It gets up to 10 pages of 100 pull requests; if there are more, the status bar says that not all requests are shown. Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
 
 **Terminal title.** The tool sets the terminal title to the number of pending requests, for example `review-queue (3)`, so that the count shows in a tab or pane title while the queue is out of view. After a failed poll, the title is `review-queue (3, error)`. At exit, the tool puts back the title that was there before (in terminals that support the title stack).
 

@@ -42,6 +42,7 @@ fn app_with(numbers: &[u64]) -> App {
         Event::PollSucceeded {
             queue: numbers.iter().map(|&n| item(n)).collect(),
             at: at("2026-10-20T09:00:00Z"),
+            incomplete: false,
         },
         &now(),
     );
@@ -106,6 +107,7 @@ fn poll(app: &mut App, numbers: &[u64]) {
         Event::PollSucceeded {
             queue: numbers.iter().map(|&n| item(n)).collect(),
             at: at("2026-10-20T09:01:00Z"),
+            incomplete: false,
         },
         &now(),
     );
@@ -248,6 +250,7 @@ fn poll_now(app: &mut App, numbers: &[u64]) -> Effect {
         Event::PollSucceeded {
             queue: numbers.iter().map(|&n| item(n)).collect(),
             at: now().timestamp(),
+            incomplete: false,
         },
         &now(),
     )
@@ -590,6 +593,7 @@ fn a_pull_request_back_from_a_snooze_is_an_arrival() {
         Event::PollSucceeded {
             queue: [1, 2].iter().map(|&n| item(n)).collect(),
             at: later(60.0).timestamp(),
+            incomplete: false,
         },
         &later(60.0),
     );
@@ -661,6 +665,7 @@ fn app_with_item(item: QueueItem) -> App {
         Event::PollSucceeded {
             queue: vec![item],
             at: at("2026-10-20T09:00:00Z"),
+            incomplete: false,
         },
         &now(),
     );
@@ -724,4 +729,32 @@ fn copy_gives_the_same_url_as_open_and_the_status_says_it_was_copied() {
     assert!(!app.status(later).contains("copied"));
 
     assert_eq!(press(&mut App::default(), Action::Copy), Effect::None);
+}
+
+#[test]
+fn the_status_warns_when_a_poll_did_not_get_all_the_results() {
+    let mut app = App::default();
+    app.handle(
+        Event::PollSucceeded {
+            queue: vec![item(1)],
+            at: at("2026-10-20T09:00:00Z"),
+            incomplete: true,
+        },
+        &now(),
+    );
+    let status = app.status(at("2026-10-20T09:00:05Z"));
+    assert!(
+        status.contains(" · not all requests shown (over 1000)"),
+        "{status}"
+    );
+
+    app.handle(
+        Event::PollSucceeded {
+            queue: vec![item(1)],
+            at: at("2026-10-20T09:01:00Z"),
+            incomplete: false,
+        },
+        &now(),
+    );
+    assert!(!app.status(at("2026-10-20T09:01:05Z")).contains("not all"));
 }
