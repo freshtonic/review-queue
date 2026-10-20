@@ -215,3 +215,60 @@ impl SplitMix64 {
         (self.next() >> 56) as u8
     }
 }
+
+/// Draws the particles of a burst on a transparent canvas of `width` x `height` pixels.
+///
+/// A positive angle turns the sprite clockwise. Sprites use nearest-pixel sampling, so
+/// they keep their hard pixel-art edges at every size and angle.
+pub fn render(style: Style, states: &[ParticleState], width: u32, height: u32) -> image::RgbaImage {
+    let mut canvas = image::RgbaImage::new(width, height);
+    let rows: Vec<Vec<char>> = style.sprite().iter().map(|r| r.chars().collect()).collect();
+    let (sprite_w, sprite_h) = (rows[0].len() as f32, rows.len() as f32);
+
+    for state in states.iter().filter(|s| s.alpha > 0.0) {
+        let scale = state.size * height as f32 / sprite_h;
+        let (cx, cy) = (
+            state.position.0 * width as f32,
+            state.position.1 * height as f32,
+        );
+        let (sin, cos) = state.angle.sin_cos();
+        // Every pixel of the turned sprite is inside this square.
+        let reach = (sprite_w.hypot(sprite_h) / 2.0 * scale).ceil();
+        let x_range =
+            ((cx - reach).floor().max(0.0) as u32)..((cx + reach).ceil().min(width as f32) as u32);
+        let y_range =
+            ((cy - reach).floor().max(0.0) as u32)..((cy + reach).ceil().min(height as f32) as u32);
+
+        for y in y_range {
+            for x in x_range.clone() {
+                let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                // Turn the canvas point back by the angle to find the sprite pixel.
+                let col = ((dx * cos + dy * sin) / scale + sprite_w / 2.0).floor();
+                let row = ((-dx * sin + dy * cos) / scale + sprite_h / 2.0).floor();
+                if col < 0.0 || row < 0.0 || col >= sprite_w || row >= sprite_h {
+                    continue;
+                }
+                let color = match rows[row as usize][col as usize] {
+                    '#' => state.color,
+                    c => match palette(c) {
+                        Some(color) => color,
+                        None => continue,
+                    },
+                };
+                blend(canvas.get_pixel_mut(x, y), color, state.alpha);
+            }
+        }
+    }
+    canvas
+}
+
+/// Paints `color` with `alpha` over the pixel.
+fn blend(pixel: &mut image::Rgba<u8>, color: [u8; 3], alpha: f32) {
+    let below = pixel.0[3] as f32 / 255.0;
+    let out = alpha + below * (1.0 - alpha);
+    for i in 0..3 {
+        let mixed = color[i] as f32 * alpha + pixel.0[i] as f32 * below * (1.0 - alpha);
+        pixel.0[i] = (mixed / out).round() as u8;
+    }
+    pixel.0[3] = (out * 255.0).round() as u8;
+}
