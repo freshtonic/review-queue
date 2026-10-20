@@ -117,3 +117,45 @@ fn when_the_selected_pull_request_leaves_the_queue_the_selection_stays_in_the_qu
 
     assert_eq!(selected_number(&app), Some(2));
 }
+
+#[test]
+fn before_the_first_poll_the_status_says_loading() {
+    let app = App::default();
+
+    assert_eq!(app.status(at("2026-10-20T09:00:00Z")), "loading…");
+}
+
+#[test]
+fn the_status_shows_the_time_since_the_last_good_poll_and_the_count() {
+    let app = app_with(&[1, 2, 3]);
+
+    assert_eq!(
+        app.status(at("2026-10-20T09:00:12Z")),
+        "updated 12s ago · 3 pending"
+    );
+    assert_eq!(
+        app.status(at("2026-10-20T09:05:00Z")),
+        "updated 5m ago · 3 pending"
+    );
+}
+
+#[test]
+fn a_failed_poll_keeps_the_queue_and_shows_the_error_until_the_next_good_poll() {
+    let mut app = app_with(&[1, 2]);
+
+    app.handle(Event::PollFailed {
+        error: "connection refused".into(),
+    });
+
+    assert_eq!(app.queue.len(), 2);
+    assert_eq!(
+        app.status(at("2026-10-20T09:02:00Z")),
+        "updated 2m ago · 2 pending · error: connection refused"
+    );
+
+    poll(&mut app, &[1]);
+    assert_eq!(
+        app.status(at("2026-10-20T09:01:00Z")),
+        "updated 0s ago · 1 pending"
+    );
+}
