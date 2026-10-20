@@ -705,3 +705,23 @@ fn open_gives_the_whole_pull_request_when_there_is_no_new_commit_or_no_reviewed_
         Effect::OpenUrl("https://github.com/acme/widgets/pull/7".into())
     );
 }
+
+#[test]
+fn copy_gives_the_same_url_as_open_and_the_status_says_it_was_copied() {
+    let mut app = app_with_item(re_review("aaa111", "bbb222"));
+    assert_eq!(
+        press(&mut app, Action::Copy),
+        Effect::Copy("https://github.com/acme/widgets/pull/7/files/aaa111..bbb222".into())
+    );
+    let now = now().timestamp();
+    assert!(
+        app.status(now).ends_with(" · copied the link"),
+        "{}",
+        app.status(now)
+    );
+    // The notice goes after 3 seconds.
+    let later = now + jiff::SignedDuration::from_secs(3);
+    assert!(!app.status(later).contains("copied"));
+
+    assert_eq!(press(&mut App::default(), Action::Copy), Effect::None);
+}

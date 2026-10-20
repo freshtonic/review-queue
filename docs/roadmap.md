@@ -54,3 +54,4 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
 - **Re-review diff.** For a re-review, `Enter`/`o` opens the changes from the commit of the user's latest review to the head commit. With no new commit, or no commit on the review, it opens the whole pull request. `O` always opens the whole pull request.
 - **Aging.** The Wait Time is amber when a request is Stale and red when it is Overdue. Only working time counts. The thresholds are `stale_after_hours` (default 4) and `overdue_after_hours` (default 8).
 - **Resizable detail panel.** The panel starts at 50% of the body height. `+` and `-` change it in steps of 10%, from 20% to 80%. The panel has at least 12 rows and the list at least 6. The size is not saved between sessions.
+- **Copy the link.** `y` copies the link that `Enter` opens, with OSC 52. The status bar says "copied the link" for 3 seconds.

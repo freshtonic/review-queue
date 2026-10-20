@@ -109,6 +109,7 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `k` or `↑` | Move the selection up |
 | `Enter` or `o` | Open the selected pull request in the browser. For a re-review with new commits, this opens the changes since your last review |
 | `O` | Open the whole selected pull request in the browser |
+| `y` | Copy the link that `Enter` opens to the clipboard. This uses OSC 52, so it works over SSH; in herdr or tmux, the multiplexer must pass OSC 52 through |
 | `r` | Refresh the queue now |
 | `s` | Snooze the selected pull request. In the snoozed view, change the end time of its snooze |
 | `d` | Dismiss: snooze the selected pull request for 1 working day |

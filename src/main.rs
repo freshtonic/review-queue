@@ -273,6 +273,7 @@ async fn run(
         match effect {
             Effect::None => {}
             Effect::OpenUrl(url) => open_in_browser(&url),
+            Effect::Copy(text) => copy_to_clipboard(&text),
             Effect::Refresh => start_poll(&mut poll_in_flight),
             Effect::Quit => return Ok(()),
             Effect::SaveSnoozes(snoozes) => {
@@ -307,6 +308,7 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('k') | KeyCode::Up => Some(Action::Up),
         KeyCode::Enter | KeyCode::Char('o') => Some(Action::Open),
         KeyCode::Char('O') => Some(Action::OpenFull),
+        KeyCode::Char('y') => Some(Action::Copy),
         KeyCode::Char('r') => Some(Action::Refresh),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
         KeyCode::Esc if app.show_help => Some(Action::ToggleHelp),
@@ -350,6 +352,15 @@ async fn download(
     let temporary = path.with_extension("png.tmp");
     std::fs::write(&temporary, &bytes).map_err(|e| e.to_string())?;
     std::fs::rename(&temporary, path).map_err(|e| e.to_string())
+}
+
+/// Copies the text with OSC 52, so that it works over SSH and in multiplexers such as
+/// herdr and tmux, when they pass the sequence through.
+fn copy_to_clipboard(text: &str) {
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(text);
+    print!("\x1b]52;c;{encoded}\x07");
+    let _ = std::io::Write::flush(&mut std::io::stdout());
 }
 
 fn open_in_browser(url: &str) {

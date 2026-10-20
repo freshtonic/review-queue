@@ -17,6 +17,8 @@ pub enum Action {
     Open,
     /// Open the whole selected pull request.
     OpenFull,
+    /// Copy the link that `Open` opens.
+    Copy,
     Refresh,
     ToggleHelp,
     Quit,
@@ -66,6 +68,8 @@ pub enum Event {
 pub enum Effect {
     None,
     OpenUrl(String),
+    /// Copy this text to the clipboard.
+    Copy(String),
     Refresh,
     Quit,
     /// Write these Snoozes to the Snooze file.
@@ -125,6 +129,8 @@ pub struct App {
     pub working: WorkingTime,
     /// When a request becomes Stale and Overdue.
     pub thresholds: LatenessThresholds,
+    /// When the user last copied a link, for the status bar notice.
+    copied_at: Option<Timestamp>,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
     snoozes: Vec<Snooze>,
@@ -194,6 +200,13 @@ impl App {
             Event::Action(Action::Open) => {
                 if let Some(item) = self.selected_item() {
                     return Effect::OpenUrl(review_url(item));
+                }
+            }
+            Event::Action(Action::Copy) => {
+                if let Some(item) = self.selected_item() {
+                    let url = review_url(item);
+                    self.copied_at = Some(now.timestamp());
+                    return Effect::Copy(url);
                 }
             }
             Event::Action(Action::OpenFull) => {
@@ -337,6 +350,12 @@ impl App {
         if let Some(error) = &self.error {
             status.push_str(&format!(" · error: {error}"));
         }
+        if self
+            .copied_at
+            .is_some_and(|at| now.duration_since(at) < COPIED_NOTICE)
+        {
+            status.push_str(" · copied the link");
+        }
         status
     }
 
@@ -471,6 +490,9 @@ fn short_weekday(day: Weekday) -> &'static str {
         Weekday::Sunday => "Sun",
     }
 }
+
+/// How long the status bar says that a link was copied.
+const COPIED_NOTICE: SignedDuration = SignedDuration::from_secs(3);
 
 /// The length of the arrival effect.
 const ARRIVAL: jiff::SignedDuration = jiff::SignedDuration::from_secs(1);
