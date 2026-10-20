@@ -380,3 +380,86 @@ fn while_the_picker_is_open_movement_open_and_dismiss_do_nothing() {
     assert_eq!(selected_number(&app), Some(1));
     assert_eq!(visible_numbers(&app), vec![1, 2]);
 }
+
+fn snoozed_numbers(app: &App) -> Vec<u64> {
+    app.snoozed
+        .iter()
+        .map(|s| s.item.pull_request.number)
+        .collect()
+}
+
+#[test]
+fn the_snoozed_view_selects_among_the_snoozed_requests() {
+    let mut app = App::new(
+        WorkingTime::default(),
+        vec![
+            snooze(1, local("2026-10-22T10:00")),
+            snooze(3, local("2026-10-23T10:00")),
+        ],
+    );
+    poll_now(&mut app, &[1, 2, 3]);
+
+    press(&mut app, Action::ToggleSnoozedView);
+    assert!(app.show_snoozed);
+    assert_eq!(selected_number(&app), Some(1));
+    press(&mut app, Action::Down);
+    assert_eq!(selected_number(&app), Some(3));
+
+    press(&mut app, Action::ToggleSnoozedView);
+    assert!(!app.show_snoozed);
+    assert_eq!(selected_number(&app), Some(2));
+}
+
+#[test]
+fn unsnooze_in_the_snoozed_view_ends_the_snooze_of_the_selected_request() {
+    let mut app = App::new(
+        WorkingTime::default(),
+        vec![
+            snooze(1, local("2026-10-22T10:00")),
+            snooze(3, local("2026-10-23T10:00")),
+        ],
+    );
+    poll_now(&mut app, &[1, 2, 3]);
+    press(&mut app, Action::ToggleSnoozedView);
+
+    let effect = press(&mut app, Action::Unsnooze);
+
+    assert_eq!(
+        effect,
+        Effect::SaveSnoozes(vec![snooze(3, local("2026-10-23T10:00"))])
+    );
+    assert_eq!(snoozed_numbers(&app), vec![3]);
+    assert_eq!(visible_numbers(&app), vec![1, 2]);
+    assert_eq!(selected_number(&app), Some(3));
+}
+
+#[test]
+fn snooze_in_the_snoozed_view_changes_the_end_time() {
+    let mut app = App::new(
+        WorkingTime::default(),
+        vec![snooze(1, local("2026-10-22T10:00"))],
+    );
+    poll_now(&mut app, &[1, 2]);
+    press(&mut app, Action::ToggleSnoozedView);
+
+    press(&mut app, Action::Snooze);
+    let effect = press(&mut app, Action::Choose(1));
+
+    assert_eq!(
+        effect,
+        Effect::SaveSnoozes(vec![snooze(1, local("2026-10-21T11:00"))])
+    );
+    assert_eq!(snoozed_numbers(&app), vec![1]);
+}
+
+#[test]
+fn unsnooze_in_the_main_view_does_nothing() {
+    let mut app = App::new(
+        WorkingTime::default(),
+        vec![snooze(1, local("2026-10-22T10:00"))],
+    );
+    poll_now(&mut app, &[1, 2]);
+
+    assert_eq!(press(&mut app, Action::Unsnooze), Effect::None);
+    assert_eq!(snoozed_numbers(&app), vec![1]);
+}

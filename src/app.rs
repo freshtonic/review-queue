@@ -30,6 +30,10 @@ pub enum Action {
     Confirm,
     /// Close the snooze picker.
     Cancel,
+    /// Show or close the snoozed view.
+    ToggleSnoozedView,
+    /// In the snoozed view, end the Snooze of the selected request.
+    Unsnooze,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,7 +83,7 @@ pub struct App {
     pub queue: Vec<QueueItem>,
     /// The snoozed requests.
     pub snoozed: Vec<SnoozedItem>,
-    /// The index of the selected item in `queue`.
+    /// The index of the selected item in `queue`, or in `snoozed` in the snoozed view.
     pub selected: usize,
     /// The time of the last good poll.
     pub updated_at: Option<Timestamp>,
@@ -88,6 +92,8 @@ pub struct App {
     pub show_help: bool,
     /// The snooze picker, while it is open.
     pub picker: Option<Picker>,
+    /// True while the snoozed view shows.
+    pub show_snoozed: bool,
     pub working: WorkingTime,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
@@ -120,7 +126,7 @@ impl App {
         match event {
             Event::Action(Action::ToggleHelp) => self.show_help = !self.show_help,
             Event::Action(Action::Down) => {
-                self.selected = (self.selected + 1).min(self.queue.len().saturating_sub(1));
+                self.selected = (self.selected + 1).min(self.view_len().saturating_sub(1));
             }
             Event::Action(Action::Up) => self.selected = self.selected.saturating_sub(1),
             Event::Action(Action::Open) => {
@@ -146,6 +152,21 @@ impl App {
                 | Action::Confirm
                 | Action::Cancel,
             ) => {}
+            Event::Action(Action::ToggleSnoozedView) => {
+                self.show_snoozed = !self.show_snoozed;
+                self.selected = 0;
+            }
+            Event::Action(Action::Unsnooze) => {
+                if self.show_snoozed
+                    && let Some(item) = self.selected_item()
+                {
+                    let (repo, number) = (item.pull_request.repo.clone(), item.pull_request.number);
+                    self.snoozes
+                        .retain(|s| !(s.repo == repo && s.number == number));
+                    self.refresh_view(now.timestamp());
+                    return Effect::SaveSnoozes(self.snoozes.clone());
+                }
+            }
             Event::Action(Action::Dismiss) => {
                 return self.snooze_selected(SnoozeChoice::Dismiss, now);
             }
@@ -164,8 +185,21 @@ impl App {
         Effect::None
     }
 
+    /// The selected item in the view that shows: the Queue, or the snoozed requests.
     pub fn selected_item(&self) -> Option<&QueueItem> {
-        self.queue.get(self.selected)
+        if self.show_snoozed {
+            self.snoozed.get(self.selected).map(|s| &s.item)
+        } else {
+            self.queue.get(self.selected)
+        }
+    }
+
+    fn view_len(&self) -> usize {
+        if self.show_snoozed {
+            self.snoozed.len()
+        } else {
+            self.queue.len()
+        }
     }
 
     pub fn status(&self, now: Timestamp) -> String {
@@ -289,18 +323,23 @@ impl App {
     }
 
     /// Splits the whole Queue into the visible and the snoozed requests, and keeps the
-    /// selection on the same pull request if it is still visible.
+    /// selection on the same pull request if it is still in the view that shows.
     fn refresh_view(&mut self, now: Timestamp) {
         let key = |i: &QueueItem| (i.pull_request.repo.clone(), i.pull_request.number);
         let selected_key = self.selected_item().map(key);
         let outcome = apply_snoozes(self.all.clone(), &self.snoozes, now);
-        self.selected = selected_key
-            .and_then(|k| outcome.visible.iter().position(|i| key(i) == k))
-            .unwrap_or(self.selected)
-            .min(outcome.visible.len().saturating_sub(1));
         self.queue = outcome.visible;
         self.snoozed = outcome.snoozed;
         self.snoozes = outcome.kept;
+        let view: Vec<&QueueItem> = if self.show_snoozed {
+            self.snoozed.iter().map(|s| &s.item).collect()
+        } else {
+            self.queue.iter().collect()
+        };
+        self.selected = selected_key
+            .and_then(|k| view.iter().position(|&i| key(i) == k))
+            .unwrap_or(self.selected)
+            .min(view.len().saturating_sub(1));
     }
 }
 
