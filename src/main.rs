@@ -317,6 +317,8 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Tab => Some(Action::ToggleFocus),
         KeyCode::PageDown => Some(Action::PageDown),
         KeyCode::PageUp => Some(Action::PageUp),
+        KeyCode::Char('+' | '=') => Some(Action::GrowPanel),
+        KeyCode::Char('-' | '_') => Some(Action::ShrinkPanel),
         KeyCode::Char(' ') if app.panel_focused => Some(Action::PageDown),
         KeyCode::Char('s') => Some(Action::Snooze),
         KeyCode::Char('d') => Some(Action::Dismiss),

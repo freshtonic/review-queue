@@ -61,12 +61,37 @@ fn an_empty_description_has_no_lines() {
 use review_queue::details::panel_layout;
 
 #[test]
-fn the_panel_is_below_the_list_at_24_rows_or_more_and_uses_40_percent_of_the_height() {
-    assert_eq!(panel_layout(23), (23, None));
-    assert_eq!(panel_layout(24), (12, Some(12)));
-    assert_eq!(panel_layout(40), (24, Some(16)));
-    assert_eq!(panel_layout(60), (36, Some(24)));
-    assert_eq!(panel_layout(0), (0, None));
+fn the_panel_is_below_the_list_at_24_rows_or_more_and_uses_its_percent_of_the_height() {
+    assert_eq!(panel_layout(23, 50), (23, None));
+    assert_eq!(panel_layout(0, 50), (0, None));
+    assert_eq!(panel_layout(24, 50), (12, Some(12)));
+    assert_eq!(panel_layout(40, 50), (20, Some(20)));
+    assert_eq!(panel_layout(60, 30), (42, Some(18)));
+    // The panel has at least 12 rows, and the list keeps at least 6.
+    assert_eq!(panel_layout(30, 20), (18, Some(12)));
+    assert_eq!(panel_layout(24, 80), (6, Some(18)));
+    assert_eq!(panel_layout(60, 80), (12, Some(48)));
+}
+
+#[test]
+fn the_panel_starts_at_half_the_height_and_resizes_in_steps_of_10_percent_from_20_to_80() {
+    use review_queue::app::{Action, App, Event};
+
+    let mut app = App::default();
+    assert_eq!(app.panel_percent(), 50);
+    let press = |app: &mut App, action| {
+        app.handle(Event::Action(action), &now());
+    };
+    press(&mut app, Action::GrowPanel);
+    assert_eq!(app.panel_percent(), 60);
+    for _ in 0..5 {
+        press(&mut app, Action::GrowPanel);
+    }
+    assert_eq!(app.panel_percent(), 80);
+    for _ in 0..9 {
+        press(&mut app, Action::ShrinkPanel);
+    }
+    assert_eq!(app.panel_percent(), 20);
 }
 
 use jiff::{Timestamp, Zoned};

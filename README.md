@@ -115,6 +115,7 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `z` | Show or close the snoozed view |
 | `u` | In the snoozed view: end the snooze of the selected pull request |
 | `a` | Preview the empty-queue image (`a` or `esc` closes it) |
+| `+` / `-` | Make the detail panel taller or shorter, in steps of 10% of the height (20% to 80%) |
 | `tab` | Move the focus to the detail panel, or back to the list |
 | `j`/`k`, `pgdn`/`pgup`, `space` | With the detail panel focused: scroll the description by 1 or 10 lines |
 | `?` | Show or close the help page and the current config |
@@ -161,7 +162,7 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 
 **Removing an item.** To remove a pull request from the queue, submit your review, or ask the author to remove the request.
 
-**Detail panel.** In a terminal with 24 rows or more for the queue, a panel below the list shows the selected pull request: the author's avatar, the full title, the tier, the wait time, the snooze end, the branches, the number of changed files, the CI status of the last commit, the labels, and the description as plain text. With raster graphics, each row also starts with the author's avatar. Avatars are cached in `~/.cache/review-queue/avatars/` (or `$XDG_CACHE_HOME/review-queue/avatars/`) and downloaded again after 7 days.
+**Detail panel.** In a terminal with 24 rows or more for the queue, a panel below the list shows the selected pull request. It starts at half the height; `+` and `-` resize it. The panel shows: the author's avatar, the full title, the tier, the wait time, the snooze end, the branches, the number of changed files, the CI status of the last commit, the labels, and the description as plain text. With raster graphics, each row also starts with the author's avatar. Avatars are cached in `~/.cache/review-queue/avatars/` (or `$XDG_CACHE_HOME/review-queue/avatars/`) and downloaded again after 7 days.
 
 **New arrivals.** When a pull request comes into the queue at a poll (for example, a new request, or a snooze that ended), its row flashes and fades back to normal in 1 second.
 

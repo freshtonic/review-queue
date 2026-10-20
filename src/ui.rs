@@ -177,7 +177,7 @@ pub fn draw(
         app.show_attempt || (!app.show_snoozed && app.queue.is_empty() && app.updated_at.is_some());
     let (list_height, panel_height) = match attempt {
         true => (body.height, None),
-        false => panel_layout(body.height),
+        false => panel_layout(body.height, app.panel_percent()),
     };
     let [list, panel] = Layout::vertical([
         Constraint::Length(list_height),
@@ -730,6 +730,7 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
             "tab",
             "Focus the detail panel (j/k, pgdn/pgup, space scroll), or go back",
         ),
+        ("+ / -", "Make the detail panel taller or shorter"),
         ("? / esc", "Show or close this help page"),
         ("q", "Quit"),
     ];

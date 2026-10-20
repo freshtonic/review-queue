@@ -98,12 +98,15 @@ fn wrap(text: &str, width: usize, lines: &mut Vec<String>) {
 }
 
 /// The heights of the list and of the detail panel below it, for a body `height` rows
-/// high. The panel shows at 24 rows or more and uses 40% of the height (at least 12 rows).
-pub fn panel_layout(height: u16) -> (u16, Option<u16>) {
+/// high. The panel shows at 24 rows or more and uses `percent` of the height, with at
+/// least 12 rows for the panel and 6 for the list.
+pub fn panel_layout(height: u16, percent: u16) -> (u16, Option<u16>) {
     if height < 24 {
         return (height, None);
     }
-    let panel = (height as u32 * 40 / 100).max(12) as u16;
+    let panel = ((height as u32 * percent as u32 / 100) as u16)
+        .max(12)
+        .min(height - 6);
     (height - panel, Some(panel))
 }
 

@@ -44,6 +44,9 @@ pub enum Action {
     /// Scroll the description 10 lines down, in the detail panel.
     PageDown,
     PageUp,
+    /// Make the detail panel 10% of the height taller, or shorter.
+    GrowPanel,
+    ShrinkPanel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,6 +111,8 @@ pub struct App {
     pub show_attempt: bool,
     /// True while the detail panel has the focus: up and down scroll the description.
     pub panel_focused: bool,
+    /// The change to the panel height from the default 50%, in steps of 10%.
+    panel_steps: i16,
     /// The first description line that shows, in the detail panel.
     pub description_scroll: usize,
     /// From the last draw: whether the panel shows, and the largest description scroll.
@@ -215,6 +220,8 @@ impl App {
             }
             Event::Action(Action::ToggleAttempt) => self.show_attempt = !self.show_attempt,
             Event::Action(Action::PageDown | Action::PageUp) => {}
+            Event::Action(Action::GrowPanel) => self.panel_steps = (self.panel_steps + 1).min(3),
+            Event::Action(Action::ShrinkPanel) => self.panel_steps = (self.panel_steps - 1).max(-3),
             Event::Action(Action::ToggleSnoozedView) => {
                 self.show_snoozed = !self.show_snoozed;
                 self.selected = 0;
@@ -259,6 +266,11 @@ impl App {
             Event::PollFailed { error } => self.error = Some(error),
         }
         Effect::None
+    }
+
+    /// The height of the detail panel, in percent of the body: 20 to 80, 50 at the start.
+    pub fn panel_percent(&self) -> u16 {
+        (50 + 10 * self.panel_steps) as u16
     }
 
     /// The selected item in the view that shows: the Queue, or the snoozed requests.
