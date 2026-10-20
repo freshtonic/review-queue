@@ -44,19 +44,24 @@ pub enum SnoozeChoice {
 pub fn snooze_until(choice: SnoozeChoice, now: &Zoned, working: &WorkingTime) -> Timestamp {
     match choice {
         SnoozeChoice::For(duration) => now.timestamp() + duration,
-        SnoozeChoice::NextMorning => next_working(now, working, |_| working.start),
+        SnoozeChoice::NextMorning => next_at(now, &working.days, working.start),
+        SnoozeChoice::BeforeCob(day) => next_at(
+            now,
+            &[day],
+            working.end.saturating_sub(SignedDuration::from_hours(2)),
+        ),
         _ => now.timestamp(),
     }
 }
 
-/// The first time after `now`, on a working day, at the time of day that `at` gives.
-fn next_working(now: &Zoned, working: &WorkingTime, at: impl Fn(Weekday) -> Time) -> Timestamp {
-    // Two weeks is enough to find any working day.
+/// The first time after `now` on one of `days`, at the time of day `at`.
+fn next_at(now: &Zoned, days: &[Weekday], at: Time) -> Timestamp {
+    // Fifteen days is enough to find any weekday in the next week, after today.
     (0..15)
         .filter_map(|days| now.date().checked_add(jiff::Span::new().days(days)).ok())
-        .filter(|date| working.days.contains(&date.weekday()))
+        .filter(|date| days.contains(&date.weekday()))
         .filter_map(|date| {
-            date.to_datetime(at(date.weekday()))
+            date.to_datetime(at)
                 .to_zoned(now.time_zone().clone())
                 .ok()
         })

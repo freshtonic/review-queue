@@ -49,3 +49,29 @@ fn next_morning_before_working_hours_is_the_same_morning() {
         local("2026-10-21T09:00").timestamp()
     );
 }
+
+use jiff::civil::Weekday;
+
+#[test]
+fn before_cob_friday_on_wednesday_is_friday_two_hours_before_close_of_business() {
+    assert_eq!(
+        until(SnoozeChoice::BeforeCob(Weekday::Friday), "2026-10-21T10:00"),
+        local("2026-10-23T15:30").timestamp()
+    );
+}
+
+#[test]
+fn before_cob_friday_on_friday_morning_is_the_same_day() {
+    assert_eq!(
+        until(SnoozeChoice::BeforeCob(Weekday::Friday), "2026-10-23T10:00"),
+        local("2026-10-23T15:30").timestamp()
+    );
+}
+
+#[test]
+fn before_cob_friday_after_that_time_on_friday_is_next_friday() {
+    assert_eq!(
+        until(SnoozeChoice::BeforeCob(Weekday::Friday), "2026-10-23T16:00"),
+        local("2026-10-30T15:30").timestamp()
+    );
+}
