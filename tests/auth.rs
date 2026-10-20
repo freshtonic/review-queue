@@ -24,3 +24,18 @@ fn an_empty_github_token_is_the_same_as_no_github_token() {
 
     assert_eq!(token.unwrap(), "from-gh");
 }
+
+#[test]
+fn when_gh_fails_the_error_says_to_run_gh_auth_login() {
+    let error = resolve_token(None, || Err("gh: command not found".into())).unwrap_err();
+
+    assert!(error.0.contains("gh auth login"), "{}", error.0);
+    assert!(error.0.contains("gh: command not found"), "{}", error.0);
+}
+
+#[test]
+fn an_empty_token_from_gh_is_an_error() {
+    let error = resolve_token(None, || Ok("\n".into())).unwrap_err();
+
+    assert!(error.0.contains("gh auth login"), "{}", error.0);
+}

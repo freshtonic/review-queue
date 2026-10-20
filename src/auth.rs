@@ -11,7 +11,10 @@ pub fn resolve_token(
     if let Some(token) = env_token.filter(|t| !t.trim().is_empty()) {
         return Ok(token);
     }
-    gh_token()
-        .map(|t| t.trim().to_string())
-        .map_err(AuthError)
+    let advice = "Set GITHUB_TOKEN, or run `gh auth login`.";
+    match gh_token() {
+        Ok(token) if !token.trim().is_empty() => Ok(token.trim().to_string()),
+        Ok(_) => Err(AuthError(format!("`gh auth token` gave no token. {advice}"))),
+        Err(e) => Err(AuthError(format!("`gh auth token` failed: {e}. {advice}"))),
+    }
 }
