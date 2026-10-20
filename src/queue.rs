@@ -19,12 +19,42 @@ pub struct PullRequest {
     pub viewer_has_reviewed: bool,
     /// The latest time that a comment or review mentioned the user personally.
     pub latest_mention_at: Option<Timestamp>,
+    pub details: Details,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Author {
     pub login: String,
     pub is_bot: bool,
+    pub avatar_url: Option<String>,
+}
+
+/// The data that only the detail panel shows.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Details {
+    pub head_ref: String,
+    pub base_ref: String,
+    pub changed_files: u64,
+    pub labels: Vec<Label>,
+    pub ci: CiStatus,
+    /// The description, as the author wrote it (Markdown).
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Label {
+    pub name: String,
+    pub color: [u8; 3],
+}
+
+/// The check rollup state of the last commit.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CiStatus {
+    Passing,
+    Failing,
+    Pending,
+    #[default]
+    NoChecks,
 }
 
 /// A requested reviewer on a pull request, with the time of its latest request event.

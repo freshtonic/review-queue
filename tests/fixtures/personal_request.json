@@ -1,22 +1,35 @@
 {
   "data": {
-    "viewer": { "login": "me" },
+    "viewer": {
+      "login": "me"
+    },
     "search": {
       "nodes": [
         {
           "__typename": "PullRequest",
-          "repository": { "nameWithOwner": "acme/widgets" },
+          "repository": {
+            "nameWithOwner": "acme/widgets"
+          },
           "number": 42,
           "title": "Add sprockets",
           "isDraft": true,
           "additions": 120,
           "deletions": 30,
           "createdAt": "2026-09-30T08:00:00Z",
-          "author": { "__typename": "User", "login": "alice" },
+          "author": {
+            "__typename": "User",
+            "login": "alice",
+            "avatarUrl": "https://avatars.example/alice"
+          },
           "viewerLatestReview": null,
           "reviewRequests": {
             "nodes": [
-              { "requestedReviewer": { "__typename": "User", "login": "me" } }
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
             ]
           },
           "timelineItems": {
@@ -24,9 +37,22 @@
               {
                 "__typename": "ReviewRequestedEvent",
                 "createdAt": "2026-10-01T09:00:00Z",
-                "requestedReviewer": { "__typename": "User", "login": "me" }
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
               }
             ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           }
         }
       ]

@@ -15,6 +15,7 @@ fn item(number: u64) -> QueueItem {
             author: Author {
                 login: "alice".into(),
                 is_bot: false,
+                avatar_url: None,
             },
             is_draft: false,
             additions: 1,
@@ -22,6 +23,7 @@ fn item(number: u64) -> QueueItem {
             requests: Vec::new(),
             viewer_has_reviewed: false,
             latest_mention_at: None,
+            details: Default::default(),
         },
         tier: PriorityTier::PersonalFirstReview,
         requested_at: at("2026-10-01T09:00:00Z"),

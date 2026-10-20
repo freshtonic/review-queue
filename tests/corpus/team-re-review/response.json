@@ -18,7 +18,18 @@
           "createdAt": "2026-09-01T00:00:00Z",
           "author": {
             "__typename": "User",
-            "login": "user-1"
+            "login": "user-1",
+            "avatarUrl": "https://avatars.example/user-1"
+          },
+          "headRefName": "feature-1",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           },
           "viewerLatestReview": {
             "state": "DISMISSED"
@@ -59,7 +70,18 @@
           "createdAt": "2026-09-01T00:00:00Z",
           "author": {
             "__typename": "User",
-            "login": "user-1"
+            "login": "user-1",
+            "avatarUrl": "https://avatars.example/user-1"
+          },
+          "headRefName": "feature-2",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           },
           "viewerLatestReview": null,
           "reviewRequests": {

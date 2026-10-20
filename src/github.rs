@@ -3,9 +3,11 @@
 
 use graphql_client::{GraphQLQuery, Response};
 
-use crate::queue::{Author, PullRequest, Reviewer, ReviewerRequest};
+use crate::queue::{Author, CiStatus, Details, Label, PullRequest, Reviewer, ReviewerRequest};
 
 type DateTime = jiff::Timestamp;
+#[allow(clippy::upper_case_acronyms)] // The name must match the GraphQL scalar.
+type URI = String;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -134,13 +136,49 @@ fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest, viewer: &str) -> 
     let author = pr.author.map_or(
         Author {
             login: "ghost".into(),
-            is_bot: false,
+            ..Author::default()
         },
         |a| Author {
             is_bot: matches!(a.on, q::ReviewRequestsSearchNodesOnPullRequestAuthorOn::Bot),
             login: a.login,
+            avatar_url: Some(a.avatar_url),
         },
     );
+
+    let labels = pr
+        .labels
+        .and_then(|l| l.nodes)
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .map(|l| Label {
+            color: hex_color(&l.color),
+            name: l.name,
+        })
+        .collect();
+    let rollup = pr
+        .commits
+        .nodes
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .next_back()
+        .and_then(|c| c.commit.status_check_rollup)
+        .map(|r| r.state);
+    let ci = match rollup {
+        Some(q::StatusState::SUCCESS) => CiStatus::Passing,
+        Some(q::StatusState::FAILURE | q::StatusState::ERROR) => CiStatus::Failing,
+        Some(q::StatusState::PENDING | q::StatusState::EXPECTED) => CiStatus::Pending,
+        _ => CiStatus::NoChecks,
+    };
+    let details = Details {
+        head_ref: pr.head_ref_name,
+        base_ref: pr.base_ref_name,
+        changed_files: pr.changed_files as u64,
+        labels,
+        ci,
+        body: pr.body,
+    };
 
     PullRequest {
         repo: pr.repository.name_with_owner,
@@ -153,6 +191,19 @@ fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest, viewer: &str) -> 
         requests,
         viewer_has_reviewed: pr.viewer_latest_review.is_some(),
         latest_mention_at,
+        details,
+    }
+}
+
+/// A color as GitHub gives it, for example "d93f0b". Gray if it is not valid.
+fn hex_color(hex: &str) -> [u8; 3] {
+    let channel = |i: usize| {
+        hex.get(i..i + 2)
+            .and_then(|c| u8::from_str_radix(c, 16).ok())
+    };
+    match (channel(0), channel(2), channel(4)) {
+        (Some(r), Some(g), Some(b)) if hex.len() == 6 => [r, g, b],
+        _ => [128, 128, 128],
     }
 }
 

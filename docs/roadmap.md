@@ -41,8 +41,8 @@
 
 Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal has no graphics protocol, the tool uses Unicode half-blocks. A `--no-images` flag turns graphics off.
 
-- **Author avatars** in each row of the Queue. The tool caches them on disk.
-- **Detail panel**: a large avatar and a summary of the selected pull request: the full title, repository and number, author, draft, tier, Watched Team, Wait Time, Snooze, branches (`head → base`), labels, number of changed files, diff size, CI status of the last commit, and the first lines of the description. It shows on the right side only when the terminal is wide enough.
+- **Author avatars** in each row of the Queue, with raster graphics only (a 2-cell half-block avatar is not legible). The tool caches them in `~/.cache/review-queue/avatars/<login>.png` and downloads one again when the file is older than 7 days (GitHub keeps the same avatar URL when a person changes their picture). After a failed download, the row has no avatar, and the tool tries again at the next poll.
+- **Detail panel**: a large avatar and a summary of the selected pull request: the full title, repository and number, author, draft, tier, Watched Team, Wait Time, Snooze, branches (`head → base`), labels, number of changed files, diff size, CI status of the last commit, and the first lines of the description. It shows on the right side when the terminal is 140 columns or wider, and uses 40% of the width (at least 50 columns). Without raster graphics, the avatar is half-blocks. The description is plain text: HTML comments, image Markdown, and runs of blank lines are removed, and the text is wrapped and cut with `…` to fit. CI status is the rollup state of the last commit: `✓ passing`, `✗ failing` (failure or error), `● pending` (pending or expected), or `– no checks`.
 - **Empty-Queue reward**: a built-in particle burst that lasts 0.5 seconds.
   - Before each burst, the tool chooses one particle style at random: stars, smilies, hotdogs, cats, party, facehuggers, thumbs-up, diamonds, or a "FUCK YEAH" speech bubble. All particles in the burst use the sprite of that style.
   - All particles start at the center of the pane. The color, size, rotation speed, velocity, and fade-out of each particle are chosen at random, each one independently, between fixed limits.
@@ -53,4 +53,5 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
   - If the terminal has no raster graphics, the burst uses ASCII glyphs for each style. They move, change color, and fade, but do not rotate.
 - **Arrival effect**: a short animation (about 1 second) on a row that just came into the Queue. This is not a bell.
 - No animated avatars.
+- **Known issue:** bursts are slow and jerky (each frame is a full-pane RGBA image). We accept this for now.
 - The tool drives the animation: it uploads each frame once with its own image ID, and changes the placed image ID on each tick. It does not use the terminal-side animation commands of the protocol.

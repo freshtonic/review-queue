@@ -18,7 +18,18 @@
           "createdAt": "2026-09-01T00:00:00Z",
           "author": {
             "__typename": "Bot",
-            "login": "dependabot"
+            "login": "dependabot",
+            "avatarUrl": "https://avatars.example/dependabot"
+          },
+          "headRefName": "feature-1",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           },
           "viewerLatestReview": null,
           "reviewRequests": {
@@ -26,7 +37,8 @@
               {
                 "requestedReviewer": {
                   "__typename": "User",
-                  "login": "me"
+                  "login": "me",
+                  "avatarUrl": "https://avatars.example/me"
                 }
               }
             ]
@@ -38,7 +50,8 @@
                 "createdAt": "2026-10-01T09:00:00Z",
                 "requestedReviewer": {
                   "__typename": "User",
-                  "login": "me"
+                  "login": "me",
+                  "avatarUrl": "https://avatars.example/me"
                 }
               }
             ]
@@ -57,7 +70,18 @@
           "createdAt": "2026-09-01T00:00:00Z",
           "author": {
             "__typename": "User",
-            "login": "user-1"
+            "login": "user-1",
+            "avatarUrl": "https://avatars.example/user-1"
+          },
+          "headRefName": "feature-2",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           },
           "viewerLatestReview": null,
           "reviewRequests": {
@@ -65,7 +89,8 @@
               {
                 "requestedReviewer": {
                   "__typename": "User",
-                  "login": "me"
+                  "login": "me",
+                  "avatarUrl": "https://avatars.example/me"
                 }
               }
             ]
@@ -77,7 +102,8 @@
                 "createdAt": "2026-10-05T09:00:00Z",
                 "requestedReviewer": {
                   "__typename": "User",
-                  "login": "me"
+                  "login": "me",
+                  "avatarUrl": "https://avatars.example/me"
                 }
               }
             ]
@@ -96,7 +122,18 @@
           "createdAt": "2026-09-01T00:00:00Z",
           "author": {
             "__typename": "Bot",
-            "login": "renovate"
+            "login": "renovate",
+            "avatarUrl": "https://avatars.example/renovate"
+          },
+          "headRefName": "feature-3",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           },
           "viewerLatestReview": null,
           "reviewRequests": {
@@ -135,7 +172,18 @@
           "createdAt": "2026-09-01T00:00:00Z",
           "author": {
             "__typename": "User",
-            "login": "user-1"
+            "login": "user-1",
+            "avatarUrl": "https://avatars.example/user-1"
+          },
+          "headRefName": "feature-4",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
           },
           "viewerLatestReview": null,
           "reviewRequests": {

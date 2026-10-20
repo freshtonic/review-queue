@@ -22,6 +22,26 @@ query ReviewRequests {
         author {
           __typename
           login
+          avatarUrl(size: 128)
+        }
+        headRefName
+        baseRefName
+        changedFiles
+        body
+        labels(first: 10) {
+          nodes {
+            name
+            color
+          }
+        }
+        commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                state
+              }
+            }
+          }
         }
         viewerLatestReview {
           state

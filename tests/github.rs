@@ -19,6 +19,7 @@ fn a_personal_request_becomes_a_pull_request_with_the_time_of_its_request_event(
             author: Author {
                 login: "alice".into(),
                 is_bot: false,
+                avatar_url: Some("https://avatars.example/alice".into()),
             },
             is_draft: true,
             additions: 120,
@@ -29,6 +30,12 @@ fn a_personal_request_becomes_a_pull_request_with_the_time_of_its_request_event(
             }],
             viewer_has_reviewed: false,
             latest_mention_at: None,
+            details: Details {
+                head_ref: "feature".into(),
+                base_ref: "main".into(),
+                changed_files: 1,
+                ..Details::default()
+            },
         }]
     );
 }
@@ -51,7 +58,8 @@ fn a_bot_author_is_marked_as_a_bot() {
         pr.author,
         Author {
             login: "renovate".into(),
-            is_bot: true
+            is_bot: true,
+            avatar_url: Some("https://avatars.example/renovate".into()),
         }
     );
 }
@@ -87,4 +95,59 @@ fn a_response_with_errors_and_no_data_is_an_error_that_includes_the_message() {
     let error = parse_response(&fixture("errors")).unwrap_err();
 
     assert!(error.0.contains("API rate limit exceeded"), "{}", error.0);
+}
+
+use review_queue::queue::{CiStatus, Details, Label};
+
+#[test]
+fn the_details_of_a_pull_request_are_parsed() {
+    let pr = only_pull_request("details");
+
+    assert_eq!(
+        pr.author.avatar_url.as_deref(),
+        Some("https://avatars.example/u/1?v=4")
+    );
+    assert_eq!(
+        pr.details,
+        Details {
+            head_ref: "alice/sprockets".into(),
+            base_ref: "main".into(),
+            changed_files: 7,
+            labels: vec![
+                Label {
+                    name: "enhancement".into(),
+                    color: [0xa2, 0xee, 0xef],
+                },
+                Label {
+                    name: "needs-docs".into(),
+                    color: [0xd9, 0x3f, 0x0b],
+                },
+            ],
+            ci: CiStatus::Failing,
+            body: "Adds sprockets.\n\n<!-- template comment -->\nCloses #12.".into(),
+        }
+    );
+}
+
+#[test]
+fn each_check_rollup_state_maps_to_a_ci_status() {
+    let cases = [
+        (r#"{ "state": "SUCCESS" }"#, CiStatus::Passing),
+        (r#"{ "state": "FAILURE" }"#, CiStatus::Failing),
+        (r#"{ "state": "ERROR" }"#, CiStatus::Failing),
+        (r#"{ "state": "PENDING" }"#, CiStatus::Pending),
+        (r#"{ "state": "EXPECTED" }"#, CiStatus::Pending),
+        ("null", CiStatus::NoChecks),
+    ];
+    for (rollup, expected) in cases {
+        let body = fixture("details").replace(r#"{ "state": "FAILURE" }"#, rollup);
+        let snapshot = parse_response(&body).unwrap();
+        assert_eq!(snapshot.pull_requests[0].details.ci, expected, "{rollup}");
+    }
+    let no_commits = fixture("details").replace(
+        r#"{ "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] }"#,
+        r#"{ "nodes": [] }"#,
+    );
+    let snapshot = parse_response(&no_commits).unwrap();
+    assert_eq!(snapshot.pull_requests[0].details.ci, CiStatus::NoChecks);
 }

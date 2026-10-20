@@ -1,0 +1,29 @@
+{
+  "data": {
+    "viewer": { "login": "me" },
+    "search": {
+      "nodes": [
+        {
+          "__typename": "PullRequest",
+          "repository": { "nameWithOwner": "acme/widgets" },
+          "number": 42,
+          "title": "Add sprockets",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": { "__typename": "User", "login": "alice", "avatarUrl": "https://avatars.example/u/1?v=4" },
+          "headRefName": "alice/sprockets",
+          "baseRefName": "main",
+          "changedFiles": 7,
+          "body": "Adds sprockets.\n\n<!-- template comment -->\nCloses #12.",
+          "labels": { "nodes": [ { "name": "enhancement", "color": "a2eeef" }, { "name": "needs-docs", "color": "d93f0b" } ] },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] },
+          "viewerLatestReview": null,
+          "reviewRequests": { "nodes": [ { "requestedReviewer": { "__typename": "User", "login": "me" } } ] },
+          "timelineItems": { "nodes": [] }
+        }
+      ]
+    }
+  }
+}

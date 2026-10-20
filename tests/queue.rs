@@ -17,6 +17,7 @@ fn pr(number: u64) -> PullRequest {
         author: Author {
             login: "alice".into(),
             is_bot: false,
+            avatar_url: None,
         },
         is_draft: false,
         additions: 10,
@@ -24,6 +25,7 @@ fn pr(number: u64) -> PullRequest {
         requests: Vec::new(),
         viewer_has_reviewed: false,
         latest_mention_at: None,
+        details: Default::default(),
     }
 }
 
@@ -160,6 +162,7 @@ fn by_bot(mut pr: PullRequest) -> PullRequest {
     pr.author = Author {
         login: "renovate".into(),
         is_bot: true,
+        avatar_url: None,
     };
     pr
 }
