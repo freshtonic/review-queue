@@ -214,3 +214,28 @@ fn plain_lines_have_one_tab_separated_line_for_each_item_in_queue_order() {
     );
     assert_eq!(plain_lines(&[], at("2026-10-20T12:00:00Z")), "");
 }
+
+#[test]
+fn a_request_is_fresh_then_stale_then_overdue_by_working_time() {
+    use jiff::{SignedDuration, Zoned};
+    use review_queue::queue::{Lateness, LatenessThresholds, lateness};
+    use review_queue::snooze::WorkingTime;
+
+    let local = |s: &str| -> Zoned { format!("{s}[Australia/Melbourne]").parse().unwrap() };
+    let thresholds = LatenessThresholds {
+        stale_after: SignedDuration::from_hours(4),
+        overdue_after: SignedDuration::from_hours(8),
+    };
+    // Requested on Friday 23 October 2026 at 15:30: 2 working hours on Friday.
+    let requested = local("2026-10-23T15:30").timestamp();
+    let lateness_at =
+        |now: &str| lateness(requested, &local(now), &WorkingTime::default(), &thresholds);
+
+    assert_eq!(lateness_at("2026-10-23T17:00"), Lateness::Fresh);
+    // The weekend does not count.
+    assert_eq!(lateness_at("2026-10-26T08:00"), Lateness::Fresh);
+    assert_eq!(lateness_at("2026-10-26T10:59"), Lateness::Fresh);
+    assert_eq!(lateness_at("2026-10-26T11:00"), Lateness::Stale);
+    assert_eq!(lateness_at("2026-10-26T14:59"), Lateness::Stale);
+    assert_eq!(lateness_at("2026-10-26T15:00"), Lateness::Overdue);
+}

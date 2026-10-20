@@ -4,7 +4,7 @@
 use jiff::civil::Weekday;
 use jiff::{SignedDuration, Timestamp, Zoned};
 
-use crate::queue::QueueItem;
+use crate::queue::{LatenessThresholds, QueueItem};
 use crate::snooze::{
     Snooze, SnoozeChoice, SnoozedItem, WorkingTime, apply_snoozes, parse_duration, snooze_until,
 };
@@ -118,6 +118,8 @@ pub struct App {
     /// The rows that arrived at a poll, and when.
     arrivals: Vec<((String, u64), Timestamp)>,
     pub working: WorkingTime,
+    /// When a request becomes Stale and Overdue.
+    pub thresholds: LatenessThresholds,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
     snoozes: Vec<Snooze>,

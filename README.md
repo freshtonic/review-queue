@@ -90,6 +90,11 @@ watched_teams = ["acme/platform"]
 work_start = "09:00"
 work_end = "17:30"
 work_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+
+# After this many working hours of wait, a request is stale (amber wait time),
+# then overdue (red wait time).
+stale_after_hours = 4
+overdue_after_hours = 8
 ```
 
 ## Help
@@ -147,6 +152,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 **Rows.** Each row shows the repository and the pull request number, the title, the author, the diff size (`+added −deleted`), and the wait time. A team request also shows the team. A draft pull request has a `draft` tag. A draft stays in its usual tier.
 
 **Re-reviews.** For a re-review, `Enter` (or `o`) opens only the changes since the commit of your last review (`/pull/<n>/files/<reviewed>..<head>`). If there are no new commits, it opens the whole pull request. `O` always opens the whole pull request.
+
+**Stale and overdue.** The wait time is amber when a request is stale, and red when it is overdue. Only working time counts: the working hours of your working days (`work_start`, `work_end`, `work_days`). By default, a request is stale after 4 working hours and overdue after 8.
 
 **Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
 

@@ -2,9 +2,11 @@
 
 use std::path::{Path, PathBuf};
 
+use jiff::SignedDuration;
 use jiff::civil::{Time, Weekday};
 use serde::Deserialize;
 
+use crate::queue::LatenessThresholds;
 use crate::snooze::WorkingTime;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -20,6 +22,10 @@ pub struct Config {
     pub work_end: String,
     /// The working days, as "Mon", "Tue", and so on.
     pub work_days: Vec<String>,
+    /// The working hours after which a request is Stale (its Wait Time is amber).
+    pub stale_after_hours: u64,
+    /// The working hours after which a request is Overdue (its Wait Time is red).
+    pub overdue_after_hours: u64,
 }
 
 impl Default for Config {
@@ -32,6 +38,8 @@ impl Default for Config {
             work_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
                 .map(String::from)
                 .to_vec(),
+            stale_after_hours: 4,
+            overdue_after_hours: 8,
         }
     }
 }
@@ -67,6 +75,15 @@ impl Config {
             return Err("work_days must have at least one day.".into());
         }
         Ok(working)
+    }
+}
+
+impl Config {
+    pub fn lateness_thresholds(&self) -> LatenessThresholds {
+        LatenessThresholds {
+            stale_after: SignedDuration::from_hours(self.stale_after_hours as i64),
+            overdue_after: SignedDuration::from_hours(self.overdue_after_hours as i64),
+        }
     }
 }
 

@@ -52,3 +52,4 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
 
 - **Count out of view.** The terminal title is `review-queue (<pending>)`, with `, error` after a failed poll, and the tool puts back the old title at exit. `--once` prints the Queue as tab-separated lines, and `--count` prints the number of pending requests. Both apply Snoozes, then exit.
 - **Re-review diff.** For a re-review, `Enter`/`o` opens the changes from the commit of the user's latest review to the head commit. With no new commit, or no commit on the review, it opens the whole pull request. `O` always opens the whole pull request.
+- **Aging.** The Wait Time is amber when a request is Stale and red when it is Overdue. Only working time counts. The thresholds are `stale_after_hours` (default 4) and `overdue_after_hours` (default 8).

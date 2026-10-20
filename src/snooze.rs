@@ -175,3 +175,34 @@ pub fn save(path: &std::path::Path, snoozes: &[Snooze]) -> std::io::Result<()> {
     std::fs::write(&temporary, serde_json::to_string_pretty(snoozes)?)?;
     std::fs::rename(&temporary, path)
 }
+
+/// The working time from `from` to `to`: only the working hours of working days count,
+/// in the time zone of `to`. Zero when `from` is after `to`.
+pub fn working_duration(from: Timestamp, to: &Zoned, working: &WorkingTime) -> SignedDuration {
+    let tz = to.time_zone();
+    let to = to.timestamp();
+    if from >= to {
+        return SignedDuration::ZERO;
+    }
+    let mut total = SignedDuration::ZERO;
+    let mut date = from.to_zoned(tz.clone()).date();
+    let last = to.to_zoned(tz.clone()).date();
+    while date <= last {
+        if working.days.contains(&date.weekday()) {
+            let window = |time| {
+                date.to_datetime(time)
+                    .to_zoned(tz.clone())
+                    .map(|z| z.timestamp())
+            };
+            if let (Ok(start), Ok(end)) = (window(working.start), window(working.end)) {
+                let (start, end) = (start.max(from), end.min(to));
+                if start < end {
+                    total += end.duration_since(start);
+                }
+            }
+        }
+        let Ok(next) = date.tomorrow() else { break };
+        date = next;
+    }
+    total
+}

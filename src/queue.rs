@@ -175,3 +175,44 @@ pub fn plain_lines(queue: &[QueueItem], now: Timestamp) -> String {
         })
         .collect()
 }
+
+/// Whether a request is Fresh, Stale or Overdue: its Wait Time in working time, against
+/// the user's thresholds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lateness {
+    Fresh,
+    Stale,
+    Overdue,
+}
+
+/// The working time after which a request is Stale, and after which it is Overdue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LatenessThresholds {
+    pub stale_after: jiff::SignedDuration,
+    pub overdue_after: jiff::SignedDuration,
+}
+
+impl Default for LatenessThresholds {
+    fn default() -> Self {
+        Self {
+            stale_after: jiff::SignedDuration::from_hours(4),
+            overdue_after: jiff::SignedDuration::from_hours(8),
+        }
+    }
+}
+
+pub fn lateness(
+    requested_at: Timestamp,
+    now: &jiff::Zoned,
+    working: &crate::snooze::WorkingTime,
+    thresholds: &LatenessThresholds,
+) -> Lateness {
+    let waited = crate::snooze::working_duration(requested_at, now, working);
+    if waited >= thresholds.overdue_after {
+        Lateness::Overdue
+    } else if waited >= thresholds.stale_after {
+        Lateness::Stale
+    } else {
+        Lateness::Fresh
+    }
+}

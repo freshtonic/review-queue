@@ -32,6 +32,14 @@ _Avoid_: Subscribed team, my team
 The time since the latest request event for a Review Request. A re-request resets it.
 _Avoid_: Age, staleness
 
+**Stale Request**:
+A Review Request whose Wait Time, counted in the user's working time only, is past the stale threshold but not the overdue threshold.
+_Avoid_: Old, aging
+
+**Overdue Request**:
+A Review Request whose Wait Time, counted in the user's working time only, is past the overdue threshold.
+_Avoid_: Late, expired
+
 **Priority Tier**:
 One of four ranks for a Review Request, from highest to lowest: personal re-review, personal first review, team re-review, team first review.
 _Avoid_: Bucket, category

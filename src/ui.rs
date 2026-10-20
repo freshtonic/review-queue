@@ -22,6 +22,7 @@ use ratatui::layout::Size;
 use crate::app::{App, Picker as SnoozePicker, arrival_color, short_duration};
 use crate::details::{description_lines, detail_fields, panel_layout};
 use crate::queue::{CiStatus, PriorityTier, QueueItem};
+use crate::queue::{Lateness, lateness};
 use crate::{attempt, avatar};
 
 /// The current config, as the help page shows it.
@@ -31,6 +32,8 @@ pub struct ConfigView {
     pub watched_teams: Vec<String>,
     /// The working hours and days, for example "09:00–17:30, Mon Tue Wed Thu Fri".
     pub working_time: String,
+    /// The aging thresholds, for example "stale after 4h, overdue after 8h (working time)".
+    pub aging: String,
     pub snooze_file: String,
     pub token_source: &'static str,
     /// The raster graphics protocol, or "none (ASCII)".
@@ -394,31 +397,41 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
     // The list line of each row, and the login of its author.
     let mut avatar_lines: Vec<(usize, String)> = Vec::new();
 
-    // Each row: the item, the text of the last column, and whether it is dimmed.
-    let rows: Vec<(&QueueItem, String, bool)> = if app.show_snoozed {
+    // Each row: the item, the text of the last column, its color, and whether the row is
+    // dimmed. The Wait Time is amber when the request is Stale, and red when Overdue.
+    let zoned_now = now.to_zoned(jiff::tz::TimeZone::system());
+    let rows: Vec<(&QueueItem, String, Option<Color>, bool)> = if app.show_snoozed {
         app.snoozed
             .iter()
-            .map(|s| (&s.item, format!("→{}", local_time(s.until)), true))
+            .map(|s| (&s.item, format!("→{}", local_time(s.until)), None, true))
             .collect()
     } else {
         app.queue
             .iter()
-            .map(|i| (i, short_duration(i.requested_at, now), false))
+            .map(|i| {
+                let color =
+                    match lateness(i.requested_at, &zoned_now, &app.working, &app.thresholds) {
+                        Lateness::Fresh => None,
+                        Lateness::Stale => Some(Color::Rgb(255, 176, 0)),
+                        Lateness::Overdue => Some(Color::Rgb(240, 60, 60)),
+                    };
+                (i, short_duration(i.requested_at, now), color, false)
+            })
             .collect()
     };
 
     for (tier, name) in TIERS {
-        let in_tier: Vec<&(&QueueItem, String, bool)> =
-            rows.iter().filter(|(i, _, _)| i.tier == tier).collect();
+        let in_tier: Vec<&(&QueueItem, String, Option<Color>, bool)> =
+            rows.iter().filter(|(i, ..)| i.tier == tier).collect();
         lines.push(ListItem::new(tier_header(name, in_tier.len(), width)));
-        for (item, last, dim) in in_tier {
+        for (item, last, last_color, dim) in in_tier {
             if index == app.selected {
                 selected_line = Some(lines.len());
             }
             if with_avatars {
                 avatar_lines.push((lines.len(), item.pull_request.author.login.clone()));
             }
-            let mut line = row(item, last, width, with_avatars);
+            let mut line = row(item, last, *last_color, width, with_avatars);
             if *dim {
                 line = line.patch_style(Style::new().add_modifier(Modifier::DIM));
             }
@@ -613,7 +626,13 @@ fn tier_header(name: &str, count: usize, width: usize) -> Line<'static> {
 }
 
 /// With `avatar_slot`, the row starts with 3 empty cells for the avatar and a space.
-fn row(item: &QueueItem, last: &str, width: usize, avatar_slot: bool) -> Line<'static> {
+fn row(
+    item: &QueueItem,
+    last: &str,
+    last_color: Option<Color>,
+    width: usize,
+    avatar_slot: bool,
+) -> Line<'static> {
     let slot = if avatar_slot { 3 } else { 0 };
     let width = width.saturating_sub(slot);
     let pr = &item.pull_request;
@@ -666,10 +685,11 @@ fn row(item: &QueueItem, last: &str, width: usize, avatar_slot: bool) -> Line<'s
             Style::new().fg(Color::DarkGray),
         ));
     }
-    spans.push(Span::styled(
-        format!(" {last:>last_width$}"),
-        Style::new().bold(),
-    ));
+    let mut last_style = Style::new().bold();
+    if let Some(color) = last_color {
+        last_style = last_style.fg(color);
+    }
+    spans.push(Span::styled(format!(" {last:>last_width$}"), last_style));
     Line::from(spans)
 }
 
@@ -744,6 +764,7 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
             }
         )),
         Line::raw(format!("  working time   {}", config.working_time)),
+        Line::raw(format!("  aging          {}", config.aging)),
         Line::raw(format!("  snooze file    {}", config.snooze_file)),
         Line::raw(format!("  token          {}", config.token_source)),
         Line::raw(format!("  graphics       {}", config.graphics)),

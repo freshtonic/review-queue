@@ -109,6 +109,10 @@ async fn main() -> ExitCode {
             config.work_end,
             config.work_days.join(" ")
         ),
+        aging: format!(
+            "stale after {}h, overdue after {}h (working time)",
+            config.stale_after_hours, config.overdue_after_hours
+        ),
         snooze_file: tilde(&snooze::store_path()),
         token_source,
         graphics: "",
@@ -183,6 +187,7 @@ async fn run(
     let (avatars_written, mut avatar_written) = mpsc::channel::<(String, bool)>(16);
     let mut avatars_in_flight: std::collections::HashSet<String> = Default::default();
     let mut app = App::new(working, snooze::load(&snooze::store_path()));
+    app.thresholds = config.lateness_thresholds();
     let mut poll_in_flight = false;
 
     let start_poll = |in_flight: &mut bool| {
