@@ -91,3 +91,12 @@ fn wrap(text: &str, width: usize, lines: &mut Vec<String>) {
         lines.push(line);
     }
 }
+
+/// The widths of the list and the detail panel, for a terminal `width` columns wide.
+pub fn panel_layout(width: u16) -> (u16, Option<u16>) {
+    if width < 140 {
+        return (width, None);
+    }
+    let panel = (width as u32 * 40 / 100).max(50) as u16;
+    (width - panel, Some(panel))
+}

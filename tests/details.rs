@@ -57,3 +57,13 @@ fn an_empty_description_has_no_lines() {
     assert!(lines("").is_empty());
     assert!(lines("<!-- only a template -->\n\n").is_empty());
 }
+
+use review_queue::details::panel_layout;
+
+#[test]
+fn the_panel_shows_only_at_140_columns_or_more_and_uses_40_percent() {
+    assert_eq!(panel_layout(139), (139, None));
+    assert_eq!(panel_layout(140), (84, Some(56)));
+    assert_eq!(panel_layout(200), (120, Some(80)));
+    assert_eq!(panel_layout(0), (0, None));
+}
