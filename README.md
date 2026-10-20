@@ -50,6 +50,14 @@ cargo test
 
 The priority logic is a pure function. Its tests do not use the network or the terminal.
 
+The filtering and priority rules are also tested with a corpus of synthetic GitHub API responses in `tests/corpus/`. Each scenario is a directory with:
+
+- `response.json`: a synthetic response to the query in `graphql/review_requests.graphql`
+- `config.toml`: the config for the scenario (optional)
+- `expected.txt`: the expected queue, one item per line: `<tier> <repo>#<number> [<team>]`
+
+To add a case, add a directory. You do not write code. Write `expected.txt` by hand from the rules, not from the output of the tool. Do not put real API responses in the corpus.
+
 ## Launch
 
 ```sh
