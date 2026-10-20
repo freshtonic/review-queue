@@ -2,6 +2,8 @@
 //!
 //! Positions are relative to the pane: (0, 0) is the top left and (1, 1) the bottom right.
 
+mod sprites;
+
 /// The look of all particles in one burst.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Style {
@@ -14,6 +16,79 @@ pub enum Style {
     ThumbsUp,
     Diamonds,
     FuckYeah,
+}
+
+impl Style {
+    pub const ALL: [Style; 9] = [
+        Style::Stars,
+        Style::Smilies,
+        Style::Hotdogs,
+        Style::Cats,
+        Style::Party,
+        Style::Facehuggers,
+        Style::ThumbsUp,
+        Style::Diamonds,
+        Style::FuckYeah,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Style::Stars => "stars",
+            Style::Smilies => "smilies",
+            Style::Hotdogs => "hotdogs",
+            Style::Cats => "cats",
+            Style::Party => "party",
+            Style::Facehuggers => "facehuggers",
+            Style::ThumbsUp => "thumbs-up",
+            Style::Diamonds => "diamonds",
+            Style::FuckYeah => "fuck yeah",
+        }
+    }
+
+    /// Pixel art: `.` is transparent, `#` is the particle's color, and the other
+    /// characters are fixed colors (see [`palette`]).
+    pub fn sprite(self) -> &'static [&'static str] {
+        match self {
+            Style::Stars => sprites::STAR,
+            Style::Smilies => sprites::SMILEY,
+            Style::Hotdogs => sprites::HOTDOG,
+            Style::Cats => sprites::CAT,
+            Style::Party => sprites::PARTY,
+            Style::Facehuggers => sprites::FACEHUGGER,
+            Style::ThumbsUp => sprites::THUMBS_UP,
+            Style::Diamonds => sprites::DIAMOND,
+            Style::FuckYeah => sprites::FUCK_YEAH,
+        }
+    }
+
+    /// The glyph for terminals without raster graphics.
+    pub fn ascii(self) -> &'static str {
+        match self {
+            Style::Stars => "*",
+            Style::Smilies => ":)",
+            Style::Hotdogs => "(=)",
+            Style::Cats => "^.^",
+            Style::Party => "%",
+            Style::Facehuggers => "}{",
+            Style::ThumbsUp => "+1",
+            Style::Diamonds => "<>",
+            Style::FuckYeah => "FUCK YEAH",
+        }
+    }
+}
+
+/// The fixed colors of the sprites.
+pub fn palette(c: char) -> Option<[u8; 3]> {
+    match c {
+        'k' => Some([20, 20, 20]),
+        'w' => Some([245, 245, 245]),
+        'p' => Some([255, 150, 180]),
+        'b' => Some([222, 170, 100]),
+        'r' => Some([190, 60, 50]),
+        'o' => Some([255, 150, 40]),
+        'y' => Some([255, 215, 0]),
+        _ => None,
+    }
 }
 
 /// One particle, as it was spawned.
