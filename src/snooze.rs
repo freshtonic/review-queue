@@ -126,7 +126,9 @@ pub fn apply_snoozes(queue: Vec<QueueItem>, snoozes: &[Snooze], now: Timestamp) 
         let pr = &item.pull_request;
         let active = snoozes
             .iter()
-            .find(|s| s.repo == pr.repo && s.number == pr.number && now < s.until);
+            .find(|s| s.repo == pr.repo && s.number == pr.number && now < s.until)
+            // A re-request after the Snooze started ends it.
+            .filter(|s| item.requested_at <= s.started_at);
         match active {
             Some(snooze) => {
                 outcome.kept.push(snooze.clone());
