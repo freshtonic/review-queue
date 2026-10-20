@@ -1,0 +1,35 @@
+{
+  "data": {
+    "viewer": { "login": "me" },
+    "search": {
+      "nodes": [
+        {
+          "__typename": "PullRequest",
+          "repository": { "nameWithOwner": "acme/widgets" },
+          "number": 42,
+          "title": "Add sprockets",
+          "isDraft": true,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": { "__typename": "User", "login": "alice" },
+          "viewerLatestReview": null,
+          "reviewRequests": {
+            "nodes": [
+              { "requestedReviewer": { "__typename": "User", "login": "me" } }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-01T09:00:00Z",
+                "requestedReviewer": { "__typename": "User", "login": "me" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

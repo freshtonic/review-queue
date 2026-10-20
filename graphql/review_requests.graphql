@@ -1,0 +1,62 @@
+query ReviewRequests {
+  viewer {
+    login
+  }
+  search(
+    query: "is:open is:pr review-requested:@me archived:false"
+    type: ISSUE
+    first: 100
+  ) {
+    nodes {
+      __typename
+      ... on PullRequest {
+        repository {
+          nameWithOwner
+        }
+        number
+        title
+        isDraft
+        additions
+        deletions
+        createdAt
+        author {
+          __typename
+          login
+        }
+        viewerLatestReview {
+          state
+        }
+        reviewRequests(first: 50) {
+          nodes {
+            requestedReviewer {
+              __typename
+              ... on User {
+                login
+              }
+              ... on Team {
+                combinedSlug
+              }
+            }
+          }
+        }
+        timelineItems(itemTypes: [REVIEW_REQUESTED_EVENT], last: 100) {
+          nodes {
+            __typename
+            ... on ReviewRequestedEvent {
+              createdAt
+              requestedReviewer {
+                __typename
+                ... on User {
+                  login
+                }
+                ... on Team {
+                  combinedSlug
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
