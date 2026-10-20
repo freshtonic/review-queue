@@ -47,3 +47,7 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
 - **Arrival effect**: a row that came into the visible Queue at a poll flashes a warm highlight that fades to the background in 1 second, fast at the start and slow at the end. There are no arrivals at the first poll. A pull request back from a Snooze is an arrival; a pull request that was already visible is not. It uses terminal colors only, and the tool redraws 20 times a second only while a fade runs. This is not a bell.
 - The `a` key previews the empty-queue image.
 - No animated avatars.
+
+## v1.3
+
+- **Count out of view.** The terminal title is `review-queue (<pending>)`, with `, error` after a failed poll, and the tool puts back the old title at exit. `--once` prints the Queue as tab-separated lines, and `--count` prints the number of pending requests. Both apply Snoozes, then exit.

@@ -457,6 +457,16 @@ fn key(item: &QueueItem) -> (String, u64) {
     (item.pull_request.repo.clone(), item.pull_request.number)
 }
 
+/// The terminal title: the number of pending requests, so that it shows in a tab or
+/// pane title while the Queue is out of view. Before the first good poll, no count.
+pub fn terminal_title(app: &App) -> String {
+    match (app.updated_at, &app.error) {
+        (None, _) => "review-queue".into(),
+        (Some(_), None) => format!("review-queue ({})", app.queue.len()),
+        (Some(_), Some(_)) => format!("review-queue ({}, error)", app.queue.len()),
+    }
+}
+
 /// The time from `since` to `now`, in its largest whole unit: "12s", "5m", "3h", "2d".
 pub fn short_duration(since: Timestamp, now: Timestamp) -> String {
     let seconds = now.duration_since(since).as_secs().max(0);

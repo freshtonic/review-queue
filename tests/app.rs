@@ -632,3 +632,25 @@ fn the_arrival_color_fades_from_the_highlight_to_the_background_fast_then_slow()
     assert_eq!(arrival_color(1.0, highlight, background), [0, 0, 0]);
     assert_eq!(arrival_color(2.0, highlight, background), [0, 0, 0]);
 }
+
+#[test]
+fn the_terminal_title_has_the_pending_count_and_marks_a_failed_poll() {
+    use review_queue::app::terminal_title;
+
+    assert_eq!(terminal_title(&App::default()), "review-queue");
+    let mut app = app_with(&[1, 2, 3]);
+    assert_eq!(terminal_title(&app), "review-queue (3)");
+    assert_eq!(terminal_title(&app_with(&[])), "review-queue (0)");
+
+    app.handle(
+        Event::PollFailed {
+            error: "offline".into(),
+        },
+        &now(),
+    );
+    assert_eq!(terminal_title(&app), "review-queue (3, error)");
+
+    // Snoozed requests are not pending.
+    press(&mut app, Action::Dismiss);
+    assert_eq!(terminal_title(&app), "review-queue (2, error)");
+}

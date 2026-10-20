@@ -28,6 +28,14 @@ struct Cli {
     /// Do not use raster graphics.
     #[arg(long)]
     no_images: bool,
+
+    /// Print the Queue as tab-separated lines, then exit.
+    #[arg(long, conflicts_with = "count")]
+    once: bool,
+
+    /// Print the number of pending requests, then exit.
+    #[arg(long)]
+    count: bool,
 }
 
 #[tokio::main]
@@ -68,6 +76,29 @@ async fn main() -> ExitCode {
         }
     };
 
+    if cli.once || cli.count {
+        let snapshot = match github::fetch(&reqwest::Client::new(), &token).await {
+            Ok(snapshot) => snapshot,
+            Err(e) => {
+                eprintln!("review-queue: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let now = Timestamp::now();
+        let all = queue::build_queue(
+            &snapshot.pull_requests,
+            &snapshot.viewer,
+            &config.watched_teams,
+        );
+        let visible = snooze::apply_snoozes(all, &snooze::load(&snooze::store_path()), now).visible;
+        if cli.count {
+            println!("{}", visible.len());
+        } else {
+            print!("{}", queue::plain_lines(&visible, now));
+        }
+        return ExitCode::SUCCESS;
+    }
+
     let mut view = ConfigView {
         path: tilde(&path),
         interval_secs: config.interval_secs,
@@ -84,6 +115,8 @@ async fn main() -> ExitCode {
     };
 
     let terminal = ratatui::init();
+    // Keep the terminal's title on its title stack (XTWINOPS), to put it back at exit.
+    print!("\x1b[22;0t");
     // Ask the terminal for its graphics protocol and font size. This needs the
     // terminal in raw mode, so it comes after `ratatui::init`.
     let picker = if cli.no_images {
@@ -97,6 +130,8 @@ async fn main() -> ExitCode {
     view.graphics = graphics.description();
     let result = run(terminal, config, working, token, view, graphics).await;
     ratatui::restore();
+    print!("\x1b[23;0t");
+    let _ = std::io::Write::flush(&mut std::io::stdout());
 
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -175,7 +210,13 @@ async fn run(
         });
     };
 
+    let mut title = String::new();
     loop {
+        let new_title = review_queue::app::terminal_title(&app);
+        if new_title != title {
+            crossterm::execute!(std::io::stdout(), crossterm::terminal::SetTitle(&new_title))?;
+            title = new_title;
+        }
         let mut drawn = ui::Drawn::default();
         terminal
             .draw(|frame| drawn = ui::draw(frame, &app, Timestamp::now(), &view, &mut graphics))?;

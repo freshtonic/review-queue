@@ -70,6 +70,8 @@ Options:
 |---|---|
 | `--interval <SECONDS>` | The time between two polls. The default is 60. This overrides the config file. |
 | `--no-images` | Do not use raster graphics. |
+| `--once` | Print the queue as tab-separated lines, then exit. The fields are the tier, `repo#number`, the title, the author, the wait time, and the team (for a team request). Snoozed requests are not printed. |
+| `--count` | Print the number of pending requests, then exit. Use it in a shell prompt or a status bar. |
 
 ## Configuration
 
@@ -144,6 +146,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 **Rows.** Each row shows the repository and the pull request number, the title, the author, the diff size (`+added −deleted`), and the wait time. A team request also shows the team. A draft pull request has a `draft` tag. A draft stays in its usual tier.
 
 **Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
+
+**Terminal title.** The tool sets the terminal title to the number of pending requests, for example `review-queue (3)`, so that the count shows in a tab or pane title while the queue is out of view. After a failed poll, the title is `review-queue (3, error)`. At exit, the tool puts back the title that was there before (in terminals that support the title stack).
 
 **Removing an item.** To remove a pull request from the queue, submit your review, or ask the author to remove the request.
 

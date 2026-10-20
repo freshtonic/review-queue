@@ -192,3 +192,25 @@ fn my_own_pull_request_is_not_in_the_queue_even_when_a_watched_team_is_requested
 
     assert!(queue.is_empty());
 }
+
+#[test]
+fn plain_lines_have_one_tab_separated_line_for_each_item_in_queue_order() {
+    use review_queue::queue::plain_lines;
+
+    let mut reviewed = requesting_me(pr(1), "2026-10-20T09:00:00Z");
+    reviewed.viewer_has_reviewed = true;
+    let mut team = pr(2);
+    team.title = "Fix the widget".into();
+    team.requests.push(ReviewerRequest {
+        reviewer: Reviewer::Team("acme/platform".into()),
+        requested_at: at("2026-10-18T09:00:00Z"),
+    });
+    let queue = build_queue(&[team, reviewed], ME, &["acme/platform".into()]);
+
+    assert_eq!(
+        plain_lines(&queue, at("2026-10-20T12:00:00Z")),
+        "personal-re-review\tacme/widgets#1\tPR 1\talice\t3h\n\
+         team-first-review\tacme/widgets#2\tFix the widget\talice\t2d\tacme/platform\n"
+    );
+    assert_eq!(plain_lines(&[], at("2026-10-20T12:00:00Z")), "");
+}

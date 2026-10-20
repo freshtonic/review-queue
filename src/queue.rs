@@ -140,3 +140,34 @@ fn item(
         team,
     }
 }
+
+/// The name of the tier in plain output.
+pub fn tier_name(tier: PriorityTier) -> &'static str {
+    match tier {
+        PriorityTier::PersonalReReview => "personal-re-review",
+        PriorityTier::PersonalFirstReview => "personal-first-review",
+        PriorityTier::TeamReReview => "team-re-review",
+        PriorityTier::TeamFirstReview => "team-first-review",
+    }
+}
+
+/// The Queue as plain text for scripts, one line for each item, in Queue order. The
+/// fields are separated by tabs: tier, `repo#number`, title, author, Wait Time, and the
+/// Watched Team for a Team Request.
+pub fn plain_lines(queue: &[QueueItem], now: Timestamp) -> String {
+    queue
+        .iter()
+        .map(|item| {
+            let pr = &item.pull_request;
+            let mut fields = vec![
+                tier_name(item.tier).to_string(),
+                format!("{}#{}", pr.repo, pr.number),
+                pr.title.replace(['\t', '\n'], " "),
+                pr.author.login.clone(),
+                crate::app::short_duration(item.requested_at, now),
+            ];
+            fields.extend(item.team.clone());
+            fields.join("\t") + "\n"
+        })
+        .collect()
+}

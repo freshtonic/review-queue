@@ -12,18 +12,9 @@
 
 use std::path::Path;
 
-use review_queue::queue::{PriorityTier, QueueItem, build_queue};
+use review_queue::queue::{QueueItem, build_queue, tier_name};
 use review_queue::snooze::{Snooze, apply_snoozes};
 use review_queue::{config, github};
-
-fn tier_name(tier: PriorityTier) -> &'static str {
-    match tier {
-        PriorityTier::PersonalReReview => "personal-re-review",
-        PriorityTier::PersonalFirstReview => "personal-first-review",
-        PriorityTier::TeamReReview => "team-re-review",
-        PriorityTier::TeamFirstReview => "team-first-review",
-    }
-}
 
 fn describe(item: &QueueItem) -> String {
     let pr = &item.pull_request;
