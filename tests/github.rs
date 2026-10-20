@@ -34,7 +34,11 @@ fn a_personal_request_becomes_a_pull_request_with_the_time_of_its_request_event(
 
 fn only_pull_request(name: &str) -> PullRequest {
     let snapshot = parse_response(&fixture(name)).unwrap();
-    assert_eq!(snapshot.pull_requests.len(), 1, "results that are not pull requests are skipped");
+    assert_eq!(
+        snapshot.pull_requests.len(),
+        1,
+        "results that are not pull requests are skipped"
+    );
     snapshot.pull_requests.into_iter().next().unwrap()
 }
 
@@ -42,7 +46,13 @@ fn only_pull_request(name: &str) -> PullRequest {
 fn a_bot_author_is_marked_as_a_bot() {
     let pr = only_pull_request("mixed");
 
-    assert_eq!(pr.author, Author { login: "renovate".into(), is_bot: true });
+    assert_eq!(
+        pr.author,
+        Author {
+            login: "renovate".into(),
+            is_bot: true
+        }
+    );
 }
 
 #[test]

@@ -18,8 +18,13 @@ pub enum Action {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Action(Action),
-    PollSucceeded { queue: Vec<QueueItem>, at: Timestamp },
-    PollFailed { error: String },
+    PollSucceeded {
+        queue: Vec<QueueItem>,
+        at: Timestamp,
+    },
+    PollFailed {
+        error: String,
+    },
 }
 
 /// What the shell must do after an event.
@@ -45,10 +50,10 @@ pub struct App {
 
 impl App {
     pub fn handle(&mut self, event: Event) -> Effect {
-        if self.show_help {
-            if let Event::Action(Action::Down | Action::Up | Action::Open) = event {
-                return Effect::None;
-            }
+        if self.show_help
+            && let Event::Action(Action::Down | Action::Up | Action::Open) = event
+        {
+            return Effect::None;
         }
         match event {
             Event::Action(Action::ToggleHelp) => self.show_help = !self.show_help,

@@ -93,7 +93,11 @@ fn a_team_request_after_my_prior_review_is_a_team_re_review() {
 
 #[test]
 fn a_request_to_a_team_that_is_not_watched_is_not_in_the_queue() {
-    let prs = [requesting_team(pr(1), "acme/everyone", "2026-10-01T09:00:00Z")];
+    let prs = [requesting_team(
+        pr(1),
+        "acme/everyone",
+        "2026-10-01T09:00:00Z",
+    )];
 
     let queue = build_queue(&prs, ME, &watched(&["acme/core"]));
 

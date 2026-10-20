@@ -28,6 +28,24 @@ pub struct Snapshot {
 #[derive(Debug)]
 pub struct ParseError(pub String);
 
+/// Runs the query against github.com.
+pub async fn fetch(client: &reqwest::Client, token: &str) -> Result<Snapshot, String> {
+    let response = client
+        .post("https://api.github.com/graphql")
+        .bearer_auth(token)
+        .header(reqwest::header::USER_AGENT, "review-queue")
+        .json(&ReviewRequests::build_query(q::Variables))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = response.status();
+    let body = response.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("GitHub returned {status}"));
+    }
+    parse_response(&body).map_err(|e| e.0)
+}
+
 pub fn parse_response(body: &str) -> Result<Snapshot, ParseError> {
     let response: Response<q::ResponseData> =
         serde_json::from_str(body).map_err(|e| ParseError(e.to_string()))?;
@@ -65,9 +83,9 @@ fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest) -> PullRequest {
         .into_iter()
         .flatten()
         .filter_map(|node| match node {
-            q::ReviewRequestsSearchNodesOnPullRequestTimelineItemsNodes::ReviewRequestedEvent(e) => {
-                Some((event_reviewer(e.requested_reviewer?)?, e.created_at))
-            }
+            q::ReviewRequestsSearchNodesOnPullRequestTimelineItemsNodes::ReviewRequestedEvent(
+                e,
+            ) => Some((event_reviewer(e.requested_reviewer?)?, e.created_at)),
             _ => None,
         })
         .collect();

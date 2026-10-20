@@ -2,7 +2,7 @@
 
 A terminal UI that shows the GitHub pull requests that are waiting for your review, in priority order.
 
-> **Status:** The tool is in design. This README describes v1. The `docs/roadmap.md` file gives the plan for v1.1 (snooze) and v1.2 (graphics).
+> **Status:** v1 is in development. This README describes v1. The `docs/roadmap.md` file gives the plan for v1.1 (snooze) and v1.2 (graphics).
 
 ## Purpose
 
@@ -64,7 +64,7 @@ Options:
 
 ## Configuration
 
-The config file is `~/.config/review-queue/config.toml`. The file is optional. If it is not there, the tool uses the defaults.
+The config file is `~/.config/review-queue/config.toml` (or `$XDG_CONFIG_HOME/review-queue/config.toml`, if `XDG_CONFIG_HOME` is set). The file is optional. If it is not there, the tool uses the defaults.
 
 ```toml
 # The time between two polls, in seconds.
