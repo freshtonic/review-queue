@@ -317,3 +317,66 @@ fn choosing_a_numbered_choice_snoozes_the_selected_request_and_closes_the_picker
     assert!(app.picker.is_none());
     assert_eq!(visible_numbers(&app), vec![2]);
 }
+
+fn type_text(app: &mut App, text: &str) {
+    for c in text.chars() {
+        press(app, Action::Type(c));
+    }
+}
+
+#[test]
+fn custom_asks_for_a_duration_and_snoozes_for_it() {
+    let mut app = app_with(&[1]);
+    press(&mut app, Action::Snooze);
+    press(&mut app, Action::Choose(9));
+    assert_eq!(app.picker.as_ref().unwrap().input.as_deref(), Some(""));
+
+    type_text(&mut app, "45mm");
+    press(&mut app, Action::Backspace);
+    let effect = press(&mut app, Action::Confirm);
+
+    assert_eq!(
+        effect,
+        Effect::SaveSnoozes(vec![snooze(1, local("2026-10-21T10:45"))])
+    );
+    assert!(app.picker.is_none());
+}
+
+#[test]
+fn a_custom_duration_that_is_not_valid_keeps_the_picker_open_with_an_error() {
+    let mut app = app_with(&[1]);
+    press(&mut app, Action::Snooze);
+    press(&mut app, Action::Choose(9));
+    type_text(&mut app, "soon");
+
+    assert_eq!(press(&mut app, Action::Confirm), Effect::None);
+
+    let picker = app.picker.as_ref().unwrap();
+    assert_eq!(picker.input.as_deref(), Some("soon"));
+    assert!(picker.error.is_some());
+    assert_eq!(visible_numbers(&app), vec![1]);
+}
+
+#[test]
+fn cancel_closes_the_picker_and_snoozes_nothing() {
+    let mut app = app_with(&[1, 2]);
+    press(&mut app, Action::Snooze);
+
+    assert_eq!(press(&mut app, Action::Cancel), Effect::None);
+
+    assert!(app.picker.is_none());
+    assert_eq!(visible_numbers(&app), vec![1, 2]);
+}
+
+#[test]
+fn while_the_picker_is_open_movement_open_and_dismiss_do_nothing() {
+    let mut app = app_with(&[1, 2]);
+    press(&mut app, Action::Snooze);
+
+    press(&mut app, Action::Down);
+    assert_eq!(press(&mut app, Action::Open), Effect::None);
+    assert_eq!(press(&mut app, Action::Dismiss), Effect::None);
+
+    assert_eq!(selected_number(&app), Some(1));
+    assert_eq!(visible_numbers(&app), vec![1, 2]);
+}

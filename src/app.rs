@@ -5,7 +5,9 @@ use jiff::civil::Weekday;
 use jiff::{SignedDuration, Timestamp, Zoned};
 
 use crate::queue::QueueItem;
-use crate::snooze::{Snooze, SnoozeChoice, SnoozedItem, WorkingTime, apply_snoozes, snooze_until};
+use crate::snooze::{
+    Snooze, SnoozeChoice, SnoozedItem, WorkingTime, apply_snoozes, parse_duration, snooze_until,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -21,6 +23,13 @@ pub enum Action {
     Snooze,
     /// Choose the snooze picker choice with this number (from 1).
     Choose(usize),
+    /// Type a character of a custom duration.
+    Type(char),
+    Backspace,
+    /// Accept the custom duration.
+    Confirm,
+    /// Close the snooze picker.
+    Cancel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +67,10 @@ pub struct PickerChoice {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Picker {
     pub choices: Vec<PickerChoice>,
+    /// The custom duration, while the user types it.
+    pub input: Option<String>,
+    /// Why the custom duration is not valid.
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -91,10 +104,18 @@ impl App {
     }
 
     pub fn handle(&mut self, event: Event, now: &Zoned) -> Effect {
-        if self.show_help
-            && let Event::Action(Action::Down | Action::Up | Action::Open | Action::Dismiss) = event
-        {
-            return Effect::None;
+        if let Event::Action(action) = event {
+            if self.picker.is_some() {
+                return self.handle_picker(action, now);
+            }
+            if self.show_help
+                && matches!(
+                    action,
+                    Action::Down | Action::Up | Action::Open | Action::Dismiss | Action::Snooze
+                )
+            {
+                return Effect::None;
+            }
         }
         match event {
             Event::Action(Action::ToggleHelp) => self.show_help = !self.show_help,
@@ -118,17 +139,13 @@ impl App {
                     self.picker = Some(self.new_picker(now));
                 }
             }
-            Event::Action(Action::Choose(number)) => {
-                let chosen = self
-                    .picker
-                    .as_ref()
-                    .and_then(|p| p.choices.get(number.wrapping_sub(1)))
-                    .and_then(|c| c.choice);
-                if let Some(choice) = chosen {
-                    self.picker = None;
-                    return self.snooze_selected(choice, now);
-                }
-            }
+            Event::Action(
+                Action::Choose(_)
+                | Action::Type(_)
+                | Action::Backspace
+                | Action::Confirm
+                | Action::Cancel,
+            ) => {}
             Event::Action(Action::Dismiss) => {
                 return self.snooze_selected(SnoozeChoice::Dismiss, now);
             }
@@ -172,6 +189,44 @@ impl App {
         status
     }
 
+    /// The actions while the snooze picker is open. Other actions do nothing.
+    fn handle_picker(&mut self, action: Action, now: &Zoned) -> Effect {
+        let Some(picker) = self.picker.as_mut() else {
+            return Effect::None;
+        };
+        match (&mut picker.input, action) {
+            (_, Action::Quit) => return Effect::Quit,
+            (_, Action::Cancel) => self.picker = None,
+            (None, Action::Choose(number)) => match picker.choices.get(number.wrapping_sub(1)) {
+                Some(PickerChoice {
+                    choice: Some(choice),
+                    ..
+                }) => {
+                    let choice = *choice;
+                    self.picker = None;
+                    return self.snooze_selected(choice, now);
+                }
+                Some(_) => picker.input = Some(String::new()),
+                None => {}
+            },
+            (Some(input), Action::Type(c)) => input.push(c),
+            (Some(input), Action::Backspace) => {
+                input.pop();
+            }
+            (Some(input), Action::Confirm) => match parse_duration(input) {
+                Some(duration) => {
+                    self.picker = None;
+                    return self.snooze_selected(SnoozeChoice::For(duration), now);
+                }
+                None => {
+                    picker.error = Some("Type a duration such as 45m, 3h, 2d, or 1h30m.".into())
+                }
+            },
+            _ => {}
+        }
+        Effect::None
+    }
+
     fn new_picker(&self, now: &Zoned) -> Picker {
         let choice = |label: String, choice: SnoozeChoice| PickerChoice {
             label,
@@ -208,7 +263,11 @@ impl App {
             until: None,
             choice: None,
         });
-        Picker { choices }
+        Picker {
+            choices,
+            input: None,
+            error: None,
+        }
     }
 
     fn snooze_selected(&mut self, choice: SnoozeChoice, now: &Zoned) -> Effect {
