@@ -467,3 +467,16 @@ pub fn short_duration(since: Timestamp, now: Timestamp) -> String {
         _ => format!("{}d", seconds / 86_400),
     }
 }
+
+/// The background color of an arriving row at `progress` (0 to 1) of its effect.
+/// The fade is ease-out: fast at the start, slow at the end.
+pub fn arrival_color(progress: f32, highlight: [u8; 3], background: [u8; 3]) -> [u8; 3] {
+    let p = progress.clamp(0.0, 1.0);
+    let eased = 1.0 - (1.0 - p) * (1.0 - p);
+    let mut color = [0; 3];
+    for i in 0..3 {
+        let (from, to) = (highlight[i] as f32, background[i] as f32);
+        color[i] = (from + (to - from) * eased).round() as u8;
+    }
+    color
+}

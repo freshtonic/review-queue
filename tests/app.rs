@@ -620,3 +620,15 @@ fn the_attempt_key_shows_and_closes_the_attempt_image_over_a_full_queue() {
     press(&mut app, Action::ToggleAttempt);
     assert!(!app.show_attempt);
 }
+
+use review_queue::app::arrival_color;
+
+#[test]
+fn the_arrival_color_fades_from_the_highlight_to_the_background_fast_then_slow() {
+    let (highlight, background) = ([255, 200, 0], [0, 0, 0]);
+
+    assert_eq!(arrival_color(0.0, highlight, background), [255, 200, 0]);
+    assert_eq!(arrival_color(0.5, highlight, background), [64, 50, 0]);
+    assert_eq!(arrival_color(1.0, highlight, background), [0, 0, 0]);
+    assert_eq!(arrival_color(2.0, highlight, background), [0, 0, 0]);
+}
