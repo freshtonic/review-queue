@@ -37,6 +37,11 @@ pub enum Action {
     Unsnooze,
     /// Play a burst of a random style.
     Party,
+    /// Move the focus between the list and the detail panel.
+    ToggleFocus,
+    /// Scroll the description 10 lines down, in the detail panel.
+    PageDown,
+    PageUp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,6 +102,15 @@ pub struct App {
     pub picker: Option<Picker>,
     /// True while the snoozed view shows.
     pub show_snoozed: bool,
+    /// True while the detail panel has the focus: up and down scroll the description.
+    pub panel_focused: bool,
+    /// The first description line that shows, in the detail panel.
+    pub description_scroll: usize,
+    /// From the last draw: whether the panel shows, and the largest description scroll.
+    panel_shown: bool,
+    max_scroll: usize,
+    /// The pull request whose description `description_scroll` is for.
+    scrolled: Option<(String, u64)>,
     pub working: WorkingTime,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
@@ -115,7 +129,34 @@ impl App {
     }
 
     pub fn handle(&mut self, event: Event, now: &Zoned) -> Effect {
+        let effect = self.handle_event(event, now);
+        // A new selection starts its description at the top.
+        let selected = self
+            .selected_item()
+            .map(|i| (i.pull_request.repo.clone(), i.pull_request.number));
+        if selected != self.scrolled {
+            self.scrolled = selected;
+            self.description_scroll = 0;
+        }
+        effect
+    }
+
+    fn handle_event(&mut self, event: Event, now: &Zoned) -> Effect {
         if let Event::Action(action) = event {
+            if self.panel_focused && self.picker.is_none() && !self.show_help {
+                let scroll = self.description_scroll;
+                let lines = match action {
+                    Action::Down => Some(scroll + 1),
+                    Action::Up => Some(scroll.saturating_sub(1)),
+                    Action::PageDown => Some(scroll + 10),
+                    Action::PageUp => Some(scroll.saturating_sub(10)),
+                    _ => None,
+                };
+                if let Some(lines) = lines {
+                    self.description_scroll = lines.min(self.max_scroll);
+                    return Effect::None;
+                }
+            }
             if self.picker.is_some() {
                 return self.handle_picker(action, now);
             }
@@ -158,6 +199,10 @@ impl App {
                 | Action::Cancel,
             ) => {}
             Event::Action(Action::Party) => self.start_burst(now.timestamp()),
+            Event::Action(Action::ToggleFocus) => {
+                self.panel_focused = !self.panel_focused && self.panel_shown;
+            }
+            Event::Action(Action::PageDown | Action::PageUp) => {}
             Event::Action(Action::ToggleSnoozedView) => {
                 self.show_snoozed = !self.show_snoozed;
                 self.selected = 0;
@@ -213,6 +258,14 @@ impl App {
         } else {
             self.queue.get(self.selected)
         }
+    }
+
+    /// After each draw: whether the detail panel shows, and the largest description scroll.
+    pub fn after_draw(&mut self, panel_shown: bool, max_scroll: usize) {
+        self.panel_shown = panel_shown;
+        self.max_scroll = max_scroll;
+        self.panel_focused &= panel_shown;
+        self.description_scroll = self.description_scroll.min(max_scroll);
     }
 
     /// The end of the Snooze of the selected request, in the snoozed view.

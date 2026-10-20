@@ -539,3 +539,66 @@ fn the_snooze_end_of_the_selected_request_is_known_only_in_the_snoozed_view() {
     press(&mut app, Action::ToggleSnoozedView);
     assert_eq!(app.selected_snoozed_until(), Some(until));
 }
+
+#[test]
+fn with_the_panel_focused_up_and_down_scroll_the_description_not_the_selection() {
+    let mut app = app_with(&[1, 2]);
+    app.after_draw(true, 30);
+
+    press(&mut app, Action::ToggleFocus);
+    assert!(app.panel_focused);
+    press(&mut app, Action::Down);
+    press(&mut app, Action::Down);
+    press(&mut app, Action::Up);
+    assert_eq!(app.description_scroll, 1);
+    assert_eq!(selected_number(&app), Some(1));
+
+    press(&mut app, Action::ToggleFocus);
+    assert!(!app.panel_focused);
+    press(&mut app, Action::Down);
+    assert_eq!(selected_number(&app), Some(2));
+}
+
+#[test]
+fn the_scroll_stays_between_the_top_and_the_end_of_the_description() {
+    let mut app = app_with(&[1]);
+    app.after_draw(true, 12);
+    press(&mut app, Action::ToggleFocus);
+
+    press(&mut app, Action::Up);
+    assert_eq!(app.description_scroll, 0);
+
+    press(&mut app, Action::PageDown);
+    assert_eq!(app.description_scroll, 10);
+    press(&mut app, Action::PageDown);
+    app.after_draw(true, 12);
+    assert_eq!(app.description_scroll, 12);
+    press(&mut app, Action::PageUp);
+    assert_eq!(app.description_scroll, 2);
+}
+
+#[test]
+fn a_new_selection_starts_the_description_at_the_top() {
+    let mut app = app_with(&[1, 2]);
+    app.after_draw(true, 30);
+    press(&mut app, Action::ToggleFocus);
+    press(&mut app, Action::PageDown);
+
+    press(&mut app, Action::ToggleFocus);
+    press(&mut app, Action::Down);
+
+    assert_eq!(app.description_scroll, 0);
+}
+
+#[test]
+fn when_the_panel_is_hidden_the_focus_goes_back_to_the_list() {
+    let mut app = app_with(&[1, 2]);
+    app.after_draw(true, 30);
+    press(&mut app, Action::ToggleFocus);
+
+    app.after_draw(false, 0);
+
+    assert!(!app.panel_focused);
+    press(&mut app, Action::Down);
+    assert_eq!(selected_number(&app), Some(2));
+}
