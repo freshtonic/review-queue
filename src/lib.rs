@@ -1,4 +1,5 @@
 pub mod app;
+pub mod attempt;
 pub mod auth;
 pub mod avatar;
 pub mod config;
