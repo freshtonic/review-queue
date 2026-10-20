@@ -17,6 +17,8 @@ pub struct PullRequest {
     pub requests: Vec<ReviewerRequest>,
     /// True when the user has submitted at least one review, in any state.
     pub viewer_has_reviewed: bool,
+    /// The latest time that a comment or review mentioned the user personally.
+    pub latest_mention_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

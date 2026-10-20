@@ -35,7 +35,7 @@
 - The status bar shows the number of snoozed requests. The `z` key shows the snoozed view: snoozed requests in their Priority Tiers, dimmed, with the end time of each Snooze. In that view, `u` ends the Snooze of the selected request, and `s` changes its end time.
 - The `s` key opens the snooze picker. The `d` key dismisses (a Snooze of 1 working day).
 - `Next morning` is the next start of a working day after now. At 07:00 on a working day, it is 09:00 the same day.
-- A personal @-mention is `@<login>` in the text of a comment or review, with no letter, digit, `-`, or `/` after it. A team mention (`@org/team`) does not count.
+- A personal @-mention is a GitHub mention event (`MentionedEvent`) for the user on the pull request. GitHub creates one when a comment or review mentions the user by login. A team mention does not create one for the members of the team. The query gets these events in the same timeline request as the request events, so the poll costs the same.
 
 ## v1.2 (delight)
 

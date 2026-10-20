@@ -39,7 +39,10 @@ query ReviewRequests {
             }
           }
         }
-        timelineItems(itemTypes: [REVIEW_REQUESTED_EVENT], last: 100) {
+        timelineItems(
+          itemTypes: [REVIEW_REQUESTED_EVENT, MENTIONED_EVENT]
+          last: 100
+        ) {
           nodes {
             __typename
             ... on ReviewRequestedEvent {
@@ -52,6 +55,13 @@ query ReviewRequests {
                 ... on Team {
                   combinedSlug
                 }
+              }
+            }
+            ... on MentionedEvent {
+              createdAt
+              actor {
+                __typename
+                login
               }
             }
           }

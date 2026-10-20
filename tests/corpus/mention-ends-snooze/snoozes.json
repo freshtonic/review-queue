@@ -1,0 +1,26 @@
+[
+  {
+    "repo": "acme/widgets",
+    "number": 1,
+    "started_at": "2026-10-10T00:00:00Z",
+    "until": "2026-10-25T00:00:00Z"
+  },
+  {
+    "repo": "acme/widgets",
+    "number": 2,
+    "started_at": "2026-10-10T00:00:00Z",
+    "until": "2026-10-25T00:00:00Z"
+  },
+  {
+    "repo": "acme/widgets",
+    "number": 3,
+    "started_at": "2026-10-10T00:00:00Z",
+    "until": "2026-10-25T00:00:00Z"
+  },
+  {
+    "repo": "acme/widgets",
+    "number": 4,
+    "started_at": "2026-10-10T00:00:00Z",
+    "until": "2026-10-25T00:00:00Z"
+  }
+]

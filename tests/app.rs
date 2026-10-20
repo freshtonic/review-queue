@@ -21,6 +21,7 @@ fn item(number: u64) -> QueueItem {
             deletions: 1,
             requests: Vec::new(),
             viewer_has_reviewed: false,
+            latest_mention_at: None,
         },
         tier: PriorityTier::PersonalFirstReview,
         requested_at: at("2026-10-01T09:00:00Z"),

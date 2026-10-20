@@ -28,6 +28,7 @@ fn a_personal_request_becomes_a_pull_request_with_the_time_of_its_request_event(
                 requested_at: "2026-10-01T09:00:00Z".parse().unwrap(),
             }],
             viewer_has_reviewed: false,
+            latest_mention_at: None,
         }]
     );
 }

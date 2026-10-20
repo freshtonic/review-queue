@@ -11,7 +11,7 @@ type DateTime = jiff::Timestamp;
 #[graphql(
     schema_path = "graphql/schema.graphql",
     query_path = "graphql/review_requests.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug, Clone"
 )]
 pub struct ReviewRequests;
 
@@ -64,7 +64,9 @@ pub fn parse_response(body: &str) -> Result<Snapshot, ParseError> {
         .into_iter()
         .flatten()
         .filter_map(|node| match node {
-            q::ReviewRequestsSearchNodes::PullRequest(pr) => Some(pull_request(pr)),
+            q::ReviewRequestsSearchNodes::PullRequest(pr) => {
+                Some(pull_request(pr, &data.viewer.login))
+            }
             _ => None,
         })
         .collect();
@@ -74,21 +76,39 @@ pub fn parse_response(body: &str) -> Result<Snapshot, ParseError> {
     })
 }
 
-fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest) -> PullRequest {
-    // The latest request event for each reviewer is the start of its Wait Time.
-    let events: Vec<(Reviewer, jiff::Timestamp)> = pr
+fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest, viewer: &str) -> PullRequest {
+    use q::ReviewRequestsSearchNodesOnPullRequestTimelineItemsNodes as Node;
+    let timeline: Vec<Node> = pr
         .timeline_items
         .nodes
         .unwrap_or_default()
         .into_iter()
         .flatten()
+        .collect();
+
+    // The latest request event for each reviewer is the start of its Wait Time.
+    let events: Vec<(Reviewer, jiff::Timestamp)> = timeline
+        .iter()
         .filter_map(|node| match node {
-            q::ReviewRequestsSearchNodesOnPullRequestTimelineItemsNodes::ReviewRequestedEvent(
-                e,
-            ) => Some((event_reviewer(e.requested_reviewer?)?, e.created_at)),
+            Node::ReviewRequestedEvent(e) => {
+                Some((event_reviewer(e.requested_reviewer.clone()?)?, e.created_at))
+            }
             _ => None,
         })
         .collect();
+
+    // GitHub logins are not case-sensitive.
+    let latest_mention_at = timeline
+        .iter()
+        .filter_map(|node| match node {
+            Node::MentionedEvent(e) => e
+                .actor
+                .as_ref()
+                .filter(|actor| actor.login.eq_ignore_ascii_case(viewer))
+                .map(|_| e.created_at),
+            _ => None,
+        })
+        .max();
 
     let requests = pr
         .review_requests
@@ -132,6 +152,7 @@ fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest) -> PullRequest {
         deletions: pr.deletions as u64,
         requests,
         viewer_has_reviewed: pr.viewer_latest_review.is_some(),
+        latest_mention_at,
     }
 }
 

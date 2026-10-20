@@ -23,6 +23,7 @@ fn pr(number: u64) -> PullRequest {
         deletions: 2,
         requests: Vec::new(),
         viewer_has_reviewed: false,
+        latest_mention_at: None,
     }
 }
 

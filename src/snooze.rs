@@ -127,8 +127,9 @@ pub fn apply_snoozes(queue: Vec<QueueItem>, snoozes: &[Snooze], now: Timestamp) 
         let active = snoozes
             .iter()
             .find(|s| s.repo == pr.repo && s.number == pr.number && now < s.until)
-            // A re-request after the Snooze started ends it.
-            .filter(|s| item.requested_at <= s.started_at);
+            // A re-request or a personal mention after the Snooze started ends it.
+            .filter(|s| item.requested_at <= s.started_at)
+            .filter(|s| pr.latest_mention_at.is_none_or(|at| at <= s.started_at));
         match active {
             Some(snooze) => {
                 outcome.kept.push(snooze.clone());
