@@ -106,6 +106,7 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `d` | Dismiss: snooze the selected pull request for 1 working day |
 | `z` | Show or close the snoozed view |
 | `u` | In the snoozed view: end the snooze of the selected pull request |
+| `a` | Preview the empty-queue image (`a` or `esc` closes it) |
 | `tab` | Move the focus to the detail panel, or back to the list |
 | `j`/`k`, `pgdn`/`pgup`, `space` | With the detail panel focused: scroll the description by 1 or 10 lines |
 | `?` | Show or close the help page and the current config |
@@ -148,7 +149,7 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 
 **Detail panel.** In a terminal with 24 rows or more for the queue, a panel below the list shows the selected pull request: the author's avatar, the full title, the tier, the wait time, the snooze end, the branches, the number of changed files, the CI status of the last commit, the labels, and the description as plain text. With raster graphics, each row also starts with the author's avatar. Avatars are cached in `~/.cache/review-queue/avatars/` (or `$XDG_CACHE_HOME/review-queue/avatars/`) and downloaded again after 7 days.
 
-**Empty queue.** When nothing waits for your review, the pane shows a hand-drawn star with a rainbow trail: "there was an attempt … to keep on top of PR reviews". With raster graphics (for example, Ghostty), the image is drawn at the size of the pane. In other terminals, and with `--no-images`, it is colored text art. To iterate on the image, render it to a file: `cargo run --example attempt_png -- 1200 520 out.png`.
+**Empty queue.** When nothing waits for your review, the pane shows a hand-drawn star with a rainbow trail: "there was an attempt … to keep on top of PR reviews". With raster graphics (for example, Ghostty), the image is drawn at the size of the pane. In other terminals, and with `--no-images`, it is colored text art. Push `a` to preview it at any time. To iterate on the image, render it to a file: `cargo run --example attempt_png -- 1200 520 out.png`.
 
 **Snooze.** A snooze hides a pull request until a time that you choose. Nothing is hidden forever: dismiss (`d`) is a snooze of 1 working day, at the same time on the next working day. A snooze ends early when either of these occurs after the snooze started:
 

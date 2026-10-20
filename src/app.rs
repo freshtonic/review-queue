@@ -36,6 +36,8 @@ pub enum Action {
     Unsnooze,
     /// Move the focus between the list and the detail panel.
     ToggleFocus,
+    /// Show or close the empty-queue image, to preview it.
+    ToggleAttempt,
     /// Scroll the description 10 lines down, in the detail panel.
     PageDown,
     PageUp,
@@ -99,6 +101,8 @@ pub struct App {
     pub picker: Option<Picker>,
     /// True while the snoozed view shows.
     pub show_snoozed: bool,
+    /// True while the empty-queue image shows as a preview.
+    pub show_attempt: bool,
     /// True while the detail panel has the focus: up and down scroll the description.
     pub panel_focused: bool,
     /// The first description line that shows, in the detail panel.
@@ -157,7 +161,7 @@ impl App {
             if self.picker.is_some() {
                 return self.handle_picker(action, now);
             }
-            if self.show_help
+            if (self.show_help || self.show_attempt)
                 && matches!(
                     action,
                     Action::Down | Action::Up | Action::Open | Action::Dismiss | Action::Snooze
@@ -198,6 +202,7 @@ impl App {
             Event::Action(Action::ToggleFocus) => {
                 self.panel_focused = !self.panel_focused && self.panel_shown;
             }
+            Event::Action(Action::ToggleAttempt) => self.show_attempt = !self.show_attempt,
             Event::Action(Action::PageDown | Action::PageUp) => {}
             Event::Action(Action::ToggleSnoozedView) => {
                 self.show_snoozed = !self.show_snoozed;

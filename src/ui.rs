@@ -167,7 +167,8 @@ pub fn draw(
 
     draw_title(frame, title, app, now);
     // With an empty queue, the attempt image uses the whole body and there is no panel.
-    let attempt = !app.show_snoozed && app.queue.is_empty() && app.updated_at.is_some();
+    let attempt =
+        app.show_attempt || (!app.show_snoozed && app.queue.is_empty() && app.updated_at.is_some());
     let (list_height, panel_height) = match attempt {
         true => (body.height, None),
         false => panel_layout(body.height),
@@ -191,6 +192,7 @@ pub fn draw(
     let keys = match &app.picker {
         Some(picker) if picker.input.is_some() => "type a duration · enter snooze · esc cancel",
         Some(_) => "1–9 choose · esc cancel",
+        None if app.show_attempt => "a/esc close the preview · q quit",
         None if app.panel_focused => {
             "j/k scroll · pgdn/pgup page · tab/esc back to the list · q quit"
         }

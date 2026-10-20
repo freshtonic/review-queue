@@ -607,3 +607,16 @@ fn a_pull_request_that_was_already_visible_is_not_an_arrival() {
 
     assert!(arrivals(&app, 0.0).is_empty());
 }
+
+#[test]
+fn the_attempt_key_shows_and_closes_the_attempt_image_over_a_full_queue() {
+    let mut app = app_with(&[1, 2]);
+
+    press(&mut app, Action::ToggleAttempt);
+    assert!(app.show_attempt);
+    press(&mut app, Action::Down);
+    assert_eq!(selected_number(&app), Some(1));
+
+    press(&mut app, Action::ToggleAttempt);
+    assert!(!app.show_attempt);
+}
