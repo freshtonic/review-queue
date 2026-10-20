@@ -40,11 +40,18 @@ pub struct App {
     pub updated_at: Option<Timestamp>,
     /// The error from the last poll, if it failed.
     pub error: Option<String>,
+    pub show_help: bool,
 }
 
 impl App {
     pub fn handle(&mut self, event: Event) -> Effect {
+        if self.show_help {
+            if let Event::Action(Action::Down | Action::Up | Action::Open) = event {
+                return Effect::None;
+            }
+        }
         match event {
+            Event::Action(Action::ToggleHelp) => self.show_help = !self.show_help,
             Event::Action(Action::Down) => {
                 self.selected = (self.selected + 1).min(self.queue.len().saturating_sub(1));
             }
@@ -72,7 +79,6 @@ impl App {
                 self.queue = queue;
             }
             Event::PollFailed { error } => self.error = Some(error),
-            _ => {}
         }
         Effect::None
     }

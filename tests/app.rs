@@ -159,3 +159,27 @@ fn a_failed_poll_keeps_the_queue_and_shows_the_error_until_the_next_good_poll() 
         "updated 0s ago · 1 pending"
     );
 }
+
+#[test]
+fn toggle_help_shows_and_closes_the_help_page() {
+    let mut app = app_with(&[1]);
+    assert!(!app.show_help);
+
+    press(&mut app, Action::ToggleHelp);
+    assert!(app.show_help);
+
+    press(&mut app, Action::ToggleHelp);
+    assert!(!app.show_help);
+}
+
+#[test]
+fn while_help_is_open_movement_and_open_do_nothing_but_quit_still_quits() {
+    let mut app = app_with(&[1, 2]);
+    press(&mut app, Action::ToggleHelp);
+
+    press(&mut app, Action::Down);
+    assert_eq!(press(&mut app, Action::Open), Effect::None);
+    assert_eq!(selected_number(&app), Some(1));
+
+    assert_eq!(press(&mut app, Action::Quit), Effect::Quit);
+}
