@@ -37,12 +37,13 @@
 - `Next morning` is the next start of a working day after now. At 07:00 on a working day, it is 09:00 the same day.
 - A personal @-mention is a GitHub mention event (`MentionedEvent`) for the user on the pull request. GitHub creates one when a comment or review mentions the user by login. A team mention does not create one for the members of the team. The query gets these events in the same timeline request as the request events, so the poll costs the same.
 
-## v1.2 (delight)
+## v1.2 (delight, complete)
 
 Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal has no graphics protocol, the tool uses Unicode half-blocks. A `--no-images` flag turns graphics off.
 
 - **Author avatars** in each row of the Queue, with raster graphics only (a 2-cell half-block avatar is not legible). The tool caches them in `~/.cache/review-queue/avatars/<login>.png` and downloads one again when the file is older than 7 days (GitHub keeps the same avatar URL when a person changes their picture). After a failed download, the row has no avatar, and the tool tries again at the next poll.
 - **Detail panel**: a large avatar and a summary of the selected pull request: the full title, repository and number, author, draft, tier, Watched Team, Wait Time, Snooze, branches (`head → base`), labels, number of changed files, diff size, CI status of the last commit, and the first lines of the description. It shows below the list when the body is 24 rows or taller, and uses 40% of the height (at least 12 rows). In the panel, the avatar, title, and fields are at the left, and the description is at the right; a panel narrower than 100 columns has the description below the fields. Without raster graphics, the avatar is half-blocks. The description is plain text: HTML comments, image Markdown, and runs of blank lines are removed, and the text is wrapped and cut with `…` to fit. CI status is the rollup state of the last commit: `✓ passing`, `✗ failing` (failure or error), `● pending` (pending or expected), or `– no checks`.
 - **Empty-Queue image**: when the Queue is empty, the pane shows a static image in the style of the "there was an attempt" meme: a crudely drawn five-pointed star with a trailing wavy rainbow, on a dark sky. The text above it is "there was an attempt", and the text below it is "to keep on top of PR reviews". The image is drawn by the code at the pixel size of the pane, so it fills the pane at every size. Without raster graphics, it is text art. (This replaces the particle burst, which was removed.)
-- **Arrival effect**: a short animation (about 1 second) on a row that just came into the Queue. This is not a bell.
+- **Arrival effect**: a row that came into the visible Queue at a poll flashes a warm highlight that fades to the background in 1 second, fast at the start and slow at the end. There are no arrivals at the first poll. A pull request back from a Snooze is an arrival; a pull request that was already visible is not. It uses terminal colors only, and the tool redraws 20 times a second only while a fade runs. This is not a bell.
+- The `a` key previews the empty-queue image.
 - No animated avatars.

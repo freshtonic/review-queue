@@ -142,6 +142,8 @@ async fn run(
     let mut poll_timer = tokio::time::interval(Duration::from_secs(config.interval_secs));
     // Redraw each second, so that the ages in the status bar and the rows stay current.
     let mut redraw_timer = tokio::time::interval(Duration::from_secs(1));
+    // Redraw 20 times a second while a row's arrival effect runs.
+    let mut fade_timer = tokio::time::interval(Duration::from_millis(50));
     // Avatar downloads: the login, and whether the file was written.
     let (avatars_written, mut avatar_written) = mpsc::channel::<(String, bool)>(16);
     let mut avatars_in_flight: std::collections::HashSet<String> = Default::default();
@@ -219,6 +221,7 @@ async fn run(
                 None => Effect::None,
             },
             _ = redraw_timer.tick() => Effect::None,
+            _ = fade_timer.tick(), if !app.arrival_progress(Timestamp::now()).is_empty() => Effect::None,
         };
 
         match effect {

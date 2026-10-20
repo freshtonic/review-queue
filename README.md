@@ -2,7 +2,7 @@
 
 A terminal UI that shows the GitHub pull requests that are waiting for your review, in priority order.
 
-> **Status:** v1 (the queue) and v1.1 (snooze) are complete. The `docs/roadmap.md` file gives the plan for v1.2 (graphics).
+> **Status:** v1 (the queue), v1.1 (snooze), and v1.2 (graphics) are complete. The `docs/roadmap.md` file records the decisions.
 
 ## Purpose
 
@@ -148,6 +148,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 **Removing an item.** To remove a pull request from the queue, submit your review, or ask the author to remove the request.
 
 **Detail panel.** In a terminal with 24 rows or more for the queue, a panel below the list shows the selected pull request: the author's avatar, the full title, the tier, the wait time, the snooze end, the branches, the number of changed files, the CI status of the last commit, the labels, and the description as plain text. With raster graphics, each row also starts with the author's avatar. Avatars are cached in `~/.cache/review-queue/avatars/` (or `$XDG_CACHE_HOME/review-queue/avatars/`) and downloaded again after 7 days.
+
+**New arrivals.** When a pull request comes into the queue at a poll (for example, a new request, or a snooze that ended), its row flashes and fades back to normal in 1 second.
 
 **Empty queue.** When nothing waits for your review, the pane shows a hand-drawn star with a rainbow trail: "there was an attempt … to keep on top of PR reviews". With raster graphics (for example, Ghostty), the image is drawn at the size of the pane. In other terminals, and with `--no-images`, it is colored text art. Push `a` to preview it at any time. To iterate on the image, render it to a file: `cargo run --example attempt_png -- 1200 520 out.png`.
 

@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use image::ImageReader;
 use ratatui::layout::Size;
 
-use crate::app::{App, Picker as SnoozePicker, short_duration};
+use crate::app::{App, Picker as SnoozePicker, arrival_color, short_duration};
 use crate::details::{description_lines, detail_fields, panel_layout};
 use crate::queue::{CiStatus, PriorityTier, QueueItem};
 use crate::{attempt, avatar};
@@ -36,6 +36,9 @@ pub struct ConfigView {
     /// The raster graphics protocol, or "none (ASCII)".
     pub graphics: &'static str,
 }
+
+/// The color of a row that just arrived. It fades to the background in 1 second.
+const ARRIVAL_HIGHLIGHT: [u8; 3] = [250, 210, 60];
 
 const TIERS: [(PriorityTier, &str); 4] = [
     (PriorityTier::PersonalReReview, "Personal re-review"),
@@ -379,6 +382,7 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
     let mut lines: Vec<ListItem> = Vec::new();
     let mut selected_line = None;
     let mut index = 0;
+    let arrivals = app.arrival_progress(now);
     // The list line of each row, and the login of its author.
     let mut avatar_lines: Vec<(usize, String)> = Vec::new();
 
@@ -409,6 +413,17 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
             let mut line = row(item, last, width, with_avatars);
             if *dim {
                 line = line.patch_style(Style::new().add_modifier(Modifier::DIM));
+            }
+            if let Some((_, progress)) = arrivals.iter().find(|((repo, number), _)| {
+                *repo == item.pull_request.repo && *number == item.pull_request.number
+            }) {
+                // A bright row that fades to the background. Dark text while it is bright.
+                let [r, g, b] = arrival_color(*progress, ARRIVAL_HIGHLIGHT, [0, 0, 0]);
+                let mut style = Style::new().bg(Color::Rgb(r, g, b));
+                if *progress < 0.4 {
+                    style = style.fg(Color::Black);
+                }
+                line = line.patch_style(style);
             }
             lines.push(ListItem::new(line));
             index += 1;
