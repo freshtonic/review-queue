@@ -61,3 +61,31 @@ fn down_and_up_move_the_selection_and_stop_at_the_ends_of_the_queue() {
     press(&mut app, Action::Up);
     assert_eq!(selected_number(&app), Some(2));
 }
+
+#[test]
+fn open_gives_the_url_of_the_selected_pull_request() {
+    let mut app = app_with(&[1, 2]);
+    press(&mut app, Action::Down);
+
+    let effect = press(&mut app, Action::Open);
+
+    assert_eq!(
+        effect,
+        Effect::OpenUrl("https://github.com/acme/widgets/pull/2".into())
+    );
+}
+
+#[test]
+fn open_on_an_empty_queue_does_nothing() {
+    let mut app = app_with(&[]);
+
+    assert_eq!(press(&mut app, Action::Open), Effect::None);
+}
+
+#[test]
+fn refresh_and_quit_ask_the_shell_to_refresh_and_quit() {
+    let mut app = app_with(&[1]);
+
+    assert_eq!(press(&mut app, Action::Refresh), Effect::Refresh);
+    assert_eq!(press(&mut app, Action::Quit), Effect::Quit);
+}

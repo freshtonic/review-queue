@@ -45,6 +45,17 @@ impl App {
                 self.selected = (self.selected + 1).min(self.queue.len().saturating_sub(1));
             }
             Event::Action(Action::Up) => self.selected = self.selected.saturating_sub(1),
+            Event::Action(Action::Open) => {
+                if let Some(item) = self.selected_item() {
+                    let pr = &item.pull_request;
+                    return Effect::OpenUrl(format!(
+                        "https://github.com/{}/pull/{}",
+                        pr.repo, pr.number
+                    ));
+                }
+            }
+            Event::Action(Action::Refresh) => return Effect::Refresh,
+            Event::Action(Action::Quit) => return Effect::Quit,
             Event::PollSucceeded { queue, .. } => self.queue = queue,
             _ => {}
         }
