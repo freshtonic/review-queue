@@ -67,3 +67,121 @@ fn the_panel_shows_only_at_140_columns_or_more_and_uses_40_percent() {
     assert_eq!(panel_layout(200), (120, Some(80)));
     assert_eq!(panel_layout(0), (0, None));
 }
+
+use jiff::{Timestamp, Zoned};
+use review_queue::details::detail_fields;
+use review_queue::queue::{Author, CiStatus, Details, Label, PriorityTier, PullRequest, QueueItem};
+
+fn now() -> Zoned {
+    "2026-10-21T10:00[Australia/Melbourne]".parse().unwrap()
+}
+
+fn local(s: &str) -> Timestamp {
+    format!("{s}[Australia/Melbourne]")
+        .parse::<Zoned>()
+        .unwrap()
+        .timestamp()
+}
+
+fn item() -> QueueItem {
+    QueueItem {
+        pull_request: PullRequest {
+            repo: "acme/widgets".into(),
+            number: 42,
+            title: "Add sprockets".into(),
+            author: Author {
+                login: "alice".into(),
+                is_bot: false,
+                avatar_url: None,
+            },
+            is_draft: false,
+            additions: 120,
+            deletions: 30,
+            requests: Vec::new(),
+            viewer_has_reviewed: false,
+            latest_mention_at: None,
+            details: Details {
+                head_ref: "alice/sprockets".into(),
+                base_ref: "main".into(),
+                changed_files: 7,
+                labels: Vec::new(),
+                ci: CiStatus::Passing,
+                body: String::new(),
+            },
+        },
+        tier: PriorityTier::PersonalFirstReview,
+        requested_at: local("2026-10-18T10:00"),
+        team: None,
+    }
+}
+
+#[test]
+fn the_fields_of_a_plain_request() {
+    assert_eq!(
+        detail_fields(&item(), None, &now()),
+        vec![
+            ("PR", "acme/widgets#42".to_string()),
+            ("Author", "@alice".to_string()),
+            ("Tier", "Personal first review".to_string()),
+            ("Waiting", "3d".to_string()),
+            ("Branch", "alice/sprockets → main".to_string()),
+            ("Changes", "7 files · +120 −30".to_string()),
+            ("CI", "✓ passing".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn optional_fields_show_when_they_apply() {
+    let mut item = item();
+    item.tier = PriorityTier::TeamReReview;
+    item.team = Some("acme/core".into());
+    item.pull_request.is_draft = true;
+    item.pull_request.author.is_bot = true;
+    item.pull_request.details.ci = CiStatus::Failing;
+    item.pull_request.details.labels = vec![
+        Label {
+            name: "enhancement".into(),
+            color: [0, 0, 0],
+        },
+        Label {
+            name: "needs-docs".into(),
+            color: [0, 0, 0],
+        },
+    ];
+
+    let fields = detail_fields(&item, Some(local("2026-10-23T15:30")), &now());
+
+    assert_eq!(
+        fields,
+        vec![
+            ("PR", "acme/widgets#42 · draft".to_string()),
+            ("Author", "@alice (bot)".to_string()),
+            ("Tier", "Team re-review · @acme/core".to_string()),
+            ("Waiting", "3d".to_string()),
+            ("Snoozed", "until Fri 15:30".to_string()),
+            ("Branch", "alice/sprockets → main".to_string()),
+            ("Changes", "7 files · +120 −30".to_string()),
+            ("CI", "✗ failing".to_string()),
+            ("Labels", "enhancement, needs-docs".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn each_ci_status_has_a_symbol_and_a_word() {
+    let ci = |status| {
+        let mut item = item();
+        item.pull_request.details.ci = status;
+        detail_fields(&item, None, &now())
+            .into_iter()
+            .find(|(name, _)| *name == "CI")
+            .unwrap()
+            .1
+    };
+
+    assert_eq!(ci(CiStatus::Passing), "✓ passing");
+    assert_eq!(ci(CiStatus::Failing), "✗ failing");
+    assert_eq!(ci(CiStatus::Pending), "● pending");
+    assert_eq!(ci(CiStatus::NoChecks), "– no checks");
+}

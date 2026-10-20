@@ -1,5 +1,10 @@
 //! The content and layout of the detail panel.
 
+use jiff::{Timestamp, Zoned};
+
+use crate::app::short_duration;
+use crate::queue::{CiStatus, PriorityTier, QueueItem};
+
 /// Marks where markup was removed, so that a line with only markup can be dropped.
 const REMOVED: char = '\u{0}';
 
@@ -99,4 +104,72 @@ pub fn panel_layout(width: u16) -> (u16, Option<u16>) {
     }
     let panel = (width as u32 * 40 / 100).max(50) as u16;
     (width - panel, Some(panel))
+}
+
+/// The label and value of each row of the detail panel, except the title and the
+/// description. Rows that do not apply are left out.
+pub fn detail_fields(
+    item: &QueueItem,
+    snoozed_until: Option<Timestamp>,
+    now: &Zoned,
+) -> Vec<(&'static str, String)> {
+    let pr = &item.pull_request;
+    let details = &pr.details;
+    let mut fields = Vec::new();
+
+    let mut reference = format!("{}#{}", pr.repo, pr.number);
+    if pr.is_draft {
+        reference.push_str(" · draft");
+    }
+    fields.push(("PR", reference));
+
+    let mut author = format!("@{}", pr.author.login);
+    if pr.author.is_bot {
+        author.push_str(" (bot)");
+    }
+    fields.push(("Author", author));
+
+    let mut tier = match item.tier {
+        PriorityTier::PersonalReReview => "Personal re-review",
+        PriorityTier::PersonalFirstReview => "Personal first review",
+        PriorityTier::TeamReReview => "Team re-review",
+        PriorityTier::TeamFirstReview => "Team first review",
+    }
+    .to_string();
+    if let Some(team) = &item.team {
+        tier.push_str(&format!(" · @{team}"));
+    }
+    fields.push(("Tier", tier));
+
+    fields.push((
+        "Waiting",
+        short_duration(item.requested_at, now.timestamp()),
+    ));
+    if let Some(until) = snoozed_until {
+        let local = until.to_zoned(now.time_zone().clone());
+        fields.push(("Snoozed", format!("until {}", local.strftime("%a %H:%M"))));
+    }
+    fields.push((
+        "Branch",
+        format!("{} → {}", details.head_ref, details.base_ref),
+    ));
+    fields.push((
+        "Changes",
+        format!(
+            "{} files · +{} −{}",
+            details.changed_files, pr.additions, pr.deletions
+        ),
+    ));
+    let ci = match details.ci {
+        CiStatus::Passing => "✓ passing",
+        CiStatus::Failing => "✗ failing",
+        CiStatus::Pending => "● pending",
+        CiStatus::NoChecks => "– no checks",
+    };
+    fields.push(("CI", ci.to_string()));
+    if !details.labels.is_empty() {
+        let names: Vec<&str> = details.labels.iter().map(|l| l.name.as_str()).collect();
+        fields.push(("Labels", names.join(", ")));
+    }
+    fields
 }
