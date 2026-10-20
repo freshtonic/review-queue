@@ -102,7 +102,8 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 |---|---|
 | `j` or `↓` | Move the selection down |
 | `k` or `↑` | Move the selection up |
-| `Enter` | Open the selected pull request in the browser |
+| `Enter` or `o` | Open the selected pull request in the browser. For a re-review with new commits, this opens the changes since your last review |
+| `O` | Open the whole selected pull request in the browser |
 | `r` | Refresh the queue now |
 | `s` | Snooze the selected pull request. In the snoozed view, change the end time of its snooze |
 | `d` | Dismiss: snooze the selected pull request for 1 working day |
@@ -144,6 +145,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 **Order in a tier.** In each tier, the request that has waited longest is at the top. The wait time starts at the latest request event, so a re-request starts the wait time again. Pull requests from bot accounts (for example, Dependabot or Renovate) come after all other pull requests in the same tier.
 
 **Rows.** Each row shows the repository and the pull request number, the title, the author, the diff size (`+added −deleted`), and the wait time. A team request also shows the team. A draft pull request has a `draft` tag. A draft stays in its usual tier.
+
+**Re-reviews.** For a re-review, `Enter` (or `o`) opens only the changes since the commit of your last review (`/pull/<n>/files/<reviewed>..<head>`). If there are no new commits, it opens the whole pull request. `O` always opens the whole pull request.
 
 **Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
 

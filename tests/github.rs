@@ -34,6 +34,7 @@ fn a_personal_request_becomes_a_pull_request_with_the_time_of_its_request_event(
                 head_ref: "feature".into(),
                 base_ref: "main".into(),
                 changed_files: 1,
+                head_commit: format!("c0ffee{:034}", 42),
                 ..Details::default()
             },
         }]
@@ -125,6 +126,8 @@ fn the_details_of_a_pull_request_are_parsed() {
             ],
             ci: CiStatus::Failing,
             body: "Adds sprockets.\n\n<!-- template comment -->\nCloses #12.".into(),
+            head_commit: format!("c0ffee{:034}", pr.number),
+            reviewed_commit: None,
         }
     );
 }
@@ -150,4 +153,19 @@ fn each_check_rollup_state_maps_to_a_ci_status() {
     );
     let snapshot = parse_response(&no_commits).unwrap();
     assert_eq!(snapshot.pull_requests[0].details.ci, CiStatus::NoChecks);
+}
+
+#[test]
+fn a_re_review_has_the_commit_of_the_viewers_last_review_and_the_head_commit() {
+    let pr = only_pull_request("re_review");
+
+    assert!(pr.viewer_has_reviewed);
+    assert_eq!(
+        pr.details.reviewed_commit.as_deref(),
+        Some("1111111111111111111111111111111111111111")
+    );
+    assert_eq!(
+        pr.details.head_commit,
+        "2222222222222222222222222222222222222222"
+    );
 }

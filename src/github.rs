@@ -8,6 +8,8 @@ use crate::queue::{Author, CiStatus, Details, Label, PullRequest, Reviewer, Revi
 type DateTime = jiff::Timestamp;
 #[allow(clippy::upper_case_acronyms)] // The name must match the GraphQL scalar.
 type URI = String;
+#[allow(clippy::upper_case_acronyms)]
+type GitObjectID = String;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -178,6 +180,12 @@ fn pull_request(pr: q::ReviewRequestsSearchNodesOnPullRequest, viewer: &str) -> 
         labels,
         ci,
         body: pr.body,
+        head_commit: pr.head_ref_oid,
+        reviewed_commit: pr
+            .viewer_latest_review
+            .as_ref()
+            .and_then(|r| r.commit.as_ref())
+            .map(|c| c.oid.clone()),
     };
 
     PullRequest {

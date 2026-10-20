@@ -25,6 +25,7 @@ query ReviewRequests {
           avatarUrl(size: 128)
         }
         headRefName
+        headRefOid
         baseRefName
         changedFiles
         body
@@ -45,6 +46,9 @@ query ReviewRequests {
         }
         viewerLatestReview {
           state
+          commit {
+            oid
+          }
         }
         reviewRequests(first: 50) {
           nodes {

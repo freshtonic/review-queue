@@ -108,6 +108,7 @@ fn item() -> QueueItem {
                 labels: Vec::new(),
                 ci: CiStatus::Passing,
                 body: String::new(),
+                ..Details::default()
             },
         },
         tier: PriorityTier::PersonalFirstReview,

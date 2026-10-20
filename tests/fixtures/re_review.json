@@ -1,0 +1,67 @@
+{
+  "data": {
+    "viewer": {
+      "login": "me"
+    },
+    "search": {
+      "nodes": [
+        {
+          "__typename": "PullRequest",
+          "repository": {
+            "nameWithOwner": "acme/widgets"
+          },
+          "number": 43,
+          "title": "Add sprockets",
+          "isDraft": false,
+          "additions": 120,
+          "deletions": 30,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "author": {
+            "__typename": "User",
+            "login": "alice",
+            "avatarUrl": "https://avatars.example/alice"
+          },
+          "viewerLatestReview": {
+            "state": "COMMENTED",
+            "commit": {
+              "oid": "1111111111111111111111111111111111111111"
+            }
+          },
+          "reviewRequests": {
+            "nodes": [
+              {
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "timelineItems": {
+            "nodes": [
+              {
+                "__typename": "ReviewRequestedEvent",
+                "createdAt": "2026-10-01T09:00:00Z",
+                "requestedReviewer": {
+                  "__typename": "User",
+                  "login": "me"
+                }
+              }
+            ]
+          },
+          "headRefName": "feature",
+          "baseRefName": "main",
+          "changedFiles": 1,
+          "body": "",
+          "labels": {
+            "nodes": []
+          },
+          "commits": {
+            "nodes": []
+          },
+          "headRefOid": "2222222222222222222222222222222222222222"
+        }
+      ]
+    }
+  }
+}

@@ -300,7 +300,8 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down => Some(Action::Down),
         KeyCode::Char('k') | KeyCode::Up => Some(Action::Up),
-        KeyCode::Enter => Some(Action::Open),
+        KeyCode::Enter | KeyCode::Char('o') => Some(Action::Open),
+        KeyCode::Char('O') => Some(Action::OpenFull),
         KeyCode::Char('r') => Some(Action::Refresh),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
         KeyCode::Esc if app.show_help => Some(Action::ToggleHelp),

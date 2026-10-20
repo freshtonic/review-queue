@@ -72,7 +72,8 @@
                 }
               }
             ]
-          }
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000001"
         },
         {
           "__typename": "PullRequest",
@@ -114,7 +115,8 @@
           },
           "timelineItems": {
             "nodes": []
-          }
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000002"
         },
         {
           "__typename": "PullRequest",
@@ -166,7 +168,8 @@
                 }
               }
             ]
-          }
+          },
+          "headRefOid": "c0ffee0000000000000000000000000000000003"
         }
       ]
     }

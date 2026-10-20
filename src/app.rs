@@ -13,7 +13,10 @@ use crate::snooze::{
 pub enum Action {
     Down,
     Up,
+    /// Open the selected pull request: for a re-review, the changes since the last review.
     Open,
+    /// Open the whole selected pull request.
+    OpenFull,
     Refresh,
     ToggleHelp,
     Quit,
@@ -164,7 +167,12 @@ impl App {
             if (self.show_help || self.show_attempt)
                 && matches!(
                     action,
-                    Action::Down | Action::Up | Action::Open | Action::Dismiss | Action::Snooze
+                    Action::Down
+                        | Action::Up
+                        | Action::Open
+                        | Action::OpenFull
+                        | Action::Dismiss
+                        | Action::Snooze
                 )
             {
                 return Effect::None;
@@ -178,11 +186,12 @@ impl App {
             Event::Action(Action::Up) => self.selected = self.selected.saturating_sub(1),
             Event::Action(Action::Open) => {
                 if let Some(item) = self.selected_item() {
-                    let pr = &item.pull_request;
-                    return Effect::OpenUrl(format!(
-                        "https://github.com/{}/pull/{}",
-                        pr.repo, pr.number
-                    ));
+                    return Effect::OpenUrl(review_url(item));
+                }
+            }
+            Event::Action(Action::OpenFull) => {
+                if let Some(item) = self.selected_item() {
+                    return Effect::OpenUrl(pull_request_url(item));
                 }
             }
             Event::Action(Action::Refresh) => return Effect::Refresh,
@@ -455,6 +464,27 @@ const ARRIVAL: jiff::SignedDuration = jiff::SignedDuration::from_secs(1);
 /// The identity of a pull request in the Queue.
 fn key(item: &QueueItem) -> (String, u64) {
     (item.pull_request.repo.clone(), item.pull_request.number)
+}
+
+fn pull_request_url(item: &QueueItem) -> String {
+    let pr = &item.pull_request;
+    format!("https://github.com/{}/pull/{}", pr.repo, pr.number)
+}
+
+/// The page to review the item on: for a re-review with new commits, the changes since
+/// the user's last review; otherwise, the whole pull request.
+pub fn review_url(item: &QueueItem) -> String {
+    let details = &item.pull_request.details;
+    match &details.reviewed_commit {
+        Some(reviewed) if *reviewed != details.head_commit && !details.head_commit.is_empty() => {
+            format!(
+                "{}/files/{reviewed}..{}",
+                pull_request_url(item),
+                details.head_commit
+            )
+        }
+        _ => pull_request_url(item),
+    }
 }
 
 /// The terminal title: the number of pending requests, so that it shows in a tab or

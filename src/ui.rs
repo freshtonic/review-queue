@@ -687,7 +687,11 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
     let keys = [
         ("j / ↓", "Move the selection down"),
         ("k / ↑", "Move the selection up"),
-        ("enter", "Open the selected pull request in the browser"),
+        (
+            "enter / o",
+            "Open the pull request (a re-review: the changes since your review)",
+        ),
+        ("O", "Open the whole pull request"),
         (
             "s",
             "Snooze the selected pull request (in the snoozed view: change the time)",

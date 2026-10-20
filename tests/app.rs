@@ -654,3 +654,54 @@ fn the_terminal_title_has_the_pending_count_and_marks_a_failed_poll() {
     press(&mut app, Action::Dismiss);
     assert_eq!(terminal_title(&app), "review-queue (2, error)");
 }
+
+fn app_with_item(item: QueueItem) -> App {
+    let mut app = App::default();
+    app.handle(
+        Event::PollSucceeded {
+            queue: vec![item],
+            at: at("2026-10-20T09:00:00Z"),
+        },
+        &now(),
+    );
+    app
+}
+
+fn re_review(reviewed: &str, head: &str) -> QueueItem {
+    let mut item = item(7);
+    item.tier = PriorityTier::PersonalReReview;
+    item.pull_request.viewer_has_reviewed = true;
+    item.pull_request.details.reviewed_commit = Some(reviewed.into());
+    item.pull_request.details.head_commit = head.into();
+    item
+}
+
+#[test]
+fn open_on_a_re_review_gives_the_changes_since_the_last_review() {
+    let mut app = app_with_item(re_review("aaa111", "bbb222"));
+    assert_eq!(
+        press(&mut app, Action::Open),
+        Effect::OpenUrl("https://github.com/acme/widgets/pull/7/files/aaa111..bbb222".into())
+    );
+    assert_eq!(
+        press(&mut app, Action::OpenFull),
+        Effect::OpenUrl("https://github.com/acme/widgets/pull/7".into())
+    );
+}
+
+#[test]
+fn open_gives_the_whole_pull_request_when_there_is_no_new_commit_or_no_reviewed_commit() {
+    let mut app = app_with_item(re_review("bbb222", "bbb222"));
+    assert_eq!(
+        press(&mut app, Action::Open),
+        Effect::OpenUrl("https://github.com/acme/widgets/pull/7".into())
+    );
+
+    let mut no_commit = re_review("aaa111", "bbb222");
+    no_commit.pull_request.details.reviewed_commit = None;
+    let mut app = app_with_item(no_commit);
+    assert_eq!(
+        press(&mut app, Action::Open),
+        Effect::OpenUrl("https://github.com/acme/widgets/pull/7".into())
+    );
+}

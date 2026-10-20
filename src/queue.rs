@@ -29,7 +29,7 @@ pub struct Author {
     pub avatar_url: Option<String>,
 }
 
-/// The data that only the detail panel shows.
+/// The data for the detail panel and for the links to the pull request.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Details {
     pub head_ref: String,
@@ -39,6 +39,10 @@ pub struct Details {
     pub ci: CiStatus,
     /// The description, as the author wrote it (Markdown).
     pub body: String,
+    /// The last commit of the head branch.
+    pub head_commit: String,
+    /// The commit of the user's latest review, if the user submitted one.
+    pub reviewed_commit: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
