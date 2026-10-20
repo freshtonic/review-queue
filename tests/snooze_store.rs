@@ -12,7 +12,11 @@ fn snooze(number: u64) -> Snooze {
 #[test]
 fn saved_snoozes_load_back_the_same_and_the_directory_is_created() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("state").join("review-queue").join("snoozes.json");
+    let path = dir
+        .path()
+        .join("state")
+        .join("review-queue")
+        .join("snoozes.json");
 
     save(&path, &[snooze(1), snooze(2)]).unwrap();
 

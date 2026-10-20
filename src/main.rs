@@ -6,7 +6,7 @@ use crossterm::event::{
     Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
 use futures::StreamExt;
-use jiff::Timestamp;
+use jiff::{Timestamp, Zoned};
 use ratatui::DefaultTerminal;
 use tokio::sync::mpsc;
 
@@ -137,10 +137,10 @@ async fn run(
             }
             Some(event) = incoming.recv() => {
                 poll_in_flight = false;
-                app.handle(event)
+                app.handle(event, &Zoned::now())
             }
             Some(Ok(TermEvent::Key(key))) = keys.next() => match action_for(key, &app) {
-                Some(action) => app.handle(Event::Action(action)),
+                Some(action) => app.handle(Event::Action(action), &Zoned::now()),
                 None => Effect::None,
             },
             _ = redraw_timer.tick() => Effect::None,

@@ -1,7 +1,7 @@
 //! The state of the TUI, and how it changes for each user action or poll result.
 //! It has no terminal dependencies.
 
-use jiff::Timestamp;
+use jiff::{Timestamp, Zoned};
 
 use crate::queue::QueueItem;
 
@@ -49,7 +49,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn handle(&mut self, event: Event) -> Effect {
+    pub fn handle(&mut self, event: Event, _now: &Zoned) -> Effect {
         if self.show_help
             && let Event::Action(Action::Down | Action::Up | Action::Open) = event
         {

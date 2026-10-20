@@ -1,4 +1,4 @@
-use jiff::Timestamp;
+use jiff::{Timestamp, Zoned};
 use review_queue::app::{Action, App, Effect, Event};
 use review_queue::queue::{Author, PriorityTier, PullRequest, QueueItem};
 
@@ -29,17 +29,25 @@ fn item(number: u64) -> QueueItem {
     }
 }
 
+/// The time of the actions in these tests: Wednesday 21 October 2026, 10:00 in Melbourne.
+fn now() -> Zoned {
+    "2026-10-21T10:00[Australia/Melbourne]".parse().unwrap()
+}
+
 fn app_with(numbers: &[u64]) -> App {
     let mut app = App::default();
-    app.handle(Event::PollSucceeded {
-        queue: numbers.iter().map(|&n| item(n)).collect(),
-        at: at("2026-10-20T09:00:00Z"),
-    });
+    app.handle(
+        Event::PollSucceeded {
+            queue: numbers.iter().map(|&n| item(n)).collect(),
+            at: at("2026-10-20T09:00:00Z"),
+        },
+        &now(),
+    );
     app
 }
 
 fn press(app: &mut App, action: Action) -> Effect {
-    app.handle(Event::Action(action))
+    app.handle(Event::Action(action), &now())
 }
 
 fn selected_number(app: &App) -> Option<u64> {
@@ -92,10 +100,13 @@ fn refresh_and_quit_ask_the_shell_to_refresh_and_quit() {
 }
 
 fn poll(app: &mut App, numbers: &[u64]) {
-    app.handle(Event::PollSucceeded {
-        queue: numbers.iter().map(|&n| item(n)).collect(),
-        at: at("2026-10-20T09:01:00Z"),
-    });
+    app.handle(
+        Event::PollSucceeded {
+            queue: numbers.iter().map(|&n| item(n)).collect(),
+            at: at("2026-10-20T09:01:00Z"),
+        },
+        &now(),
+    );
 }
 
 #[test]
@@ -144,9 +155,12 @@ fn the_status_shows_the_time_since_the_last_good_poll_and_the_count() {
 fn a_failed_poll_keeps_the_queue_and_shows_the_error_until_the_next_good_poll() {
     let mut app = app_with(&[1, 2]);
 
-    app.handle(Event::PollFailed {
-        error: "connection refused".into(),
-    });
+    app.handle(
+        Event::PollFailed {
+            error: "connection refused".into(),
+        },
+        &now(),
+    );
 
     assert_eq!(app.queue.len(), 2);
     assert_eq!(
