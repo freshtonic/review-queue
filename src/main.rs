@@ -10,10 +10,11 @@ use jiff::{Timestamp, Zoned};
 use ratatui::DefaultTerminal;
 use tokio::sync::mpsc;
 
+use ratatui_image::picker::{Picker, ProtocolType};
 use review_queue::app::{Action, App, Effect, Event};
 use review_queue::config::{self, Config};
 use review_queue::snooze::WorkingTime;
-use review_queue::ui::{self, ConfigView};
+use review_queue::ui::{self, ConfigView, Graphics};
 use review_queue::{auth, github, queue, snooze};
 
 /// A terminal UI that shows the GitHub pull requests that are waiting for your review.
@@ -23,6 +24,10 @@ struct Cli {
     /// The time between two polls, in seconds. This overrides the config file.
     #[arg(long, value_name = "SECONDS")]
     interval: Option<u64>,
+
+    /// Do not use raster graphics. Bursts use ASCII glyphs.
+    #[arg(long)]
+    no_images: bool,
 }
 
 #[tokio::main]
@@ -63,8 +68,8 @@ async fn main() -> ExitCode {
         }
     };
 
-    let view = ConfigView {
-        path: path.display().to_string(),
+    let mut view = ConfigView {
+        path: tilde(&path),
         interval_secs: config.interval_secs,
         watched_teams: config.watched_teams.clone(),
         working_time: format!(
@@ -73,12 +78,24 @@ async fn main() -> ExitCode {
             config.work_end,
             config.work_days.join(" ")
         ),
-        snooze_file: snooze::store_path().display().to_string(),
+        snooze_file: tilde(&snooze::store_path()),
         token_source,
+        graphics: "",
     };
 
     let terminal = ratatui::init();
-    let result = run(terminal, config, working, token, view).await;
+    // Ask the terminal for its graphics protocol and font size. This needs the
+    // terminal in raw mode, so it comes after `ratatui::init`.
+    let picker = if cli.no_images {
+        None
+    } else {
+        Picker::from_query_stdio()
+            .ok()
+            .filter(|p| p.protocol_type() != ProtocolType::Halfblocks)
+    };
+    let graphics = Graphics::new(picker);
+    view.graphics = graphics.description();
+    let result = run(terminal, config, working, token, view, graphics).await;
     ratatui::restore();
 
     match result {
@@ -87,6 +104,15 @@ async fn main() -> ExitCode {
             eprintln!("review-queue: {e}");
             ExitCode::FAILURE
         }
+    }
+}
+
+/// The path, with `~` for the home folder.
+fn tilde(path: &std::path::Path) -> String {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    match home.and_then(|home| path.strip_prefix(home).ok().map(|p| p.to_path_buf())) {
+        Some(rest) => format!("~/{}", rest.display()),
+        None => path.display().to_string(),
     }
 }
 
@@ -108,6 +134,7 @@ async fn run(
     working: WorkingTime,
     token: String,
     view: ConfigView,
+    mut graphics: Graphics,
 ) -> std::io::Result<()> {
     let client = reqwest::Client::new();
     let (results, mut incoming) = mpsc::channel::<Event>(4);
@@ -115,6 +142,8 @@ async fn run(
     let mut poll_timer = tokio::time::interval(Duration::from_secs(config.interval_secs));
     // Redraw each second, so that the ages in the status bar and the rows stay current.
     let mut redraw_timer = tokio::time::interval(Duration::from_secs(1));
+    // Redraw at the burst frame rate while a burst plays.
+    let mut frame_timer = tokio::time::interval(Duration::from_millis(33));
     let mut app = App::new(working, snooze::load(&snooze::store_path()));
     let mut poll_in_flight = false;
 
@@ -144,7 +173,7 @@ async fn run(
     };
 
     loop {
-        terminal.draw(|frame| ui::draw(frame, &app, Timestamp::now(), &view))?;
+        terminal.draw(|frame| ui::draw(frame, &app, Timestamp::now(), &view, &mut graphics))?;
 
         let effect = tokio::select! {
             _ = poll_timer.tick() => {
@@ -160,6 +189,7 @@ async fn run(
                 None => Effect::None,
             },
             _ = redraw_timer.tick() => Effect::None,
+            _ = frame_timer.tick(), if app.burst_at(Timestamp::now()).is_some() => Effect::None,
         };
 
         match effect {
@@ -206,6 +236,7 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('d') => Some(Action::Dismiss),
         KeyCode::Char('z') => Some(Action::ToggleSnoozedView),
         KeyCode::Char('u') => Some(Action::Unsnooze),
+        KeyCode::Char('p') => Some(Action::Party),
         KeyCode::Char('q') => Some(Action::Quit),
         _ => None,
     }

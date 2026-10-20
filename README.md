@@ -69,6 +69,7 @@ Options:
 | Option | Description |
 |---|---|
 | `--interval <SECONDS>` | The time between two polls. The default is 60. This overrides the config file. |
+| `--no-images` | Do not use raster graphics. Bursts use ASCII glyphs. |
 
 ## Configuration
 
@@ -101,6 +102,7 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `k` or `↑` | Move the selection up |
 | `Enter` | Open the selected pull request in the browser |
 | `r` | Refresh the queue now |
+| `p` | Party: play a random particle burst |
 | `s` | Snooze the selected pull request. In the snoozed view, change the end time of its snooze |
 | `d` | Dismiss: snooze the selected pull request for 1 working day |
 | `z` | Show or close the snoozed view |
@@ -142,6 +144,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 **Polling.** The tool asks GitHub for the queue at each interval (60 seconds by default). Push `r` to refresh immediately. The status bar shows the time since the last good update. If a poll fails, the tool keeps the last good queue on the screen and shows the error in the status bar.
 
 **Removing an item.** To remove a pull request from the queue, submit your review, or ask the author to remove the request.
+
+**Bursts.** When a poll empties the queue, a 0.5-second particle burst plays from the center of the pane, in a style chosen at random (stars, smilies, hotdogs, cats, party, facehuggers, thumbs-up, diamonds, or "FUCK YEAH"). Push `p` to play one at any time. In a terminal with the Kitty, Sixel, or iTerm2 graphics protocol (for example, Ghostty), the particles are raster sprites that turn as they fly. In other terminals, and with `--no-images`, they are ASCII glyphs.
 
 **Snooze.** A snooze hides a pull request until a time that you choose. Nothing is hidden forever: dismiss (`d`) is a snooze of 1 working day, at the same time on the next working day. A snooze ends early when either of these occurs after the snooze started:
 

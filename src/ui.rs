@@ -6,9 +6,15 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph};
 
-use crate::app::{App, Picker, short_duration};
+use image::DynamicImage;
+use ratatui_image::Resize;
+use ratatui_image::picker::{Picker, ProtocolType};
+use ratatui_image::protocol::Protocol;
+
+use crate::app::{App, Picker as SnoozePicker, short_duration};
+use crate::burst::{Burst, DURATION, render, render_ascii};
 use crate::queue::{PriorityTier, QueueItem};
 
 /// The current config, as the help page shows it.
@@ -20,6 +26,8 @@ pub struct ConfigView {
     pub working_time: String,
     pub snooze_file: String,
     pub token_source: &'static str,
+    /// The raster graphics protocol, or "none (ASCII)".
+    pub graphics: &'static str,
 }
 
 const TIERS: [(PriorityTier, &str); 4] = [
@@ -29,7 +37,49 @@ const TIERS: [(PriorityTier, &str); 4] = [
     (PriorityTier::TeamFirstReview, "Team first review"),
 ];
 
-pub fn draw(frame: &mut Frame, app: &App, now: Timestamp, config: &ConfigView) {
+/// Frames per second of a burst.
+const BURST_FPS: f32 = 30.0;
+
+/// The terminal's raster graphics, and the burst frames that were made for it.
+pub struct Graphics {
+    /// `None` when the terminal has no raster graphics, or with `--no-images`.
+    picker: Option<Picker>,
+    frames: Option<BurstFrames>,
+}
+
+/// The frames of one burst, each made when it is first needed. With Kitty, each frame is
+/// uploaded once, the first time that it shows.
+struct BurstFrames {
+    started_at: Timestamp,
+    area: Rect,
+    frames: Vec<Option<Protocol>>,
+}
+
+impl Graphics {
+    pub fn new(picker: Option<Picker>) -> Self {
+        Self {
+            picker,
+            frames: None,
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self.picker.as_ref().map(|p| p.protocol_type()) {
+            Some(ProtocolType::Kitty) => "kitty",
+            Some(ProtocolType::Sixel) => "sixel",
+            Some(ProtocolType::Iterm2) => "iterm2",
+            Some(ProtocolType::Halfblocks) | None => "none (ASCII)",
+        }
+    }
+}
+
+pub fn draw(
+    frame: &mut Frame,
+    app: &App,
+    now: Timestamp,
+    config: &ConfigView,
+    graphics: &mut Graphics,
+) {
     let [title, body, footer] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Min(0),
@@ -51,10 +101,77 @@ pub fn draw(frame: &mut Frame, app: &App, now: Timestamp, config: &ConfigView) {
     };
     frame.render_widget(Paragraph::new(keys).dark_gray(), footer);
 
+    if let Some((burst, t)) = app.burst_at(now) {
+        let started_at = now - jiff::SignedDuration::from_secs_f32(t);
+        draw_burst(frame, body, burst, t, started_at, graphics);
+    }
+
     if let Some(picker) = &app.picker {
         draw_picker(frame, body, picker);
     } else if app.show_help {
-        draw_help(frame, body, config);
+        // The whole window, so that the config at the bottom has space.
+        draw_help(frame, frame.area(), config);
+    }
+}
+
+fn draw_burst(
+    frame: &mut Frame,
+    area: Rect,
+    burst: &Burst,
+    t: f32,
+    started_at: Timestamp,
+    graphics: &mut Graphics,
+) {
+    let index = (t * BURST_FPS) as usize;
+    let frame_time = index as f32 / BURST_FPS;
+    let Some(picker) = &graphics.picker else {
+        for cell in render_ascii(burst.style, &burst.at(frame_time), area.width, area.height) {
+            let [r, g, b] = cell.color;
+            frame.buffer_mut().set_string(
+                area.x + cell.col,
+                area.y + cell.row,
+                &cell.text,
+                Style::new().fg(Color::Rgb(r, g, b)).bold(),
+            );
+        }
+        return;
+    };
+
+    // The frames of another burst, or of another pane size, are not useful any more.
+    let same = graphics.frames.as_ref().is_some_and(|f| {
+        f.area == area
+            && f.started_at.duration_since(started_at).abs() < jiff::SignedDuration::from_millis(5)
+    });
+    if !same {
+        let count = (DURATION * BURST_FPS).ceil() as usize;
+        graphics.frames = Some(BurstFrames {
+            started_at,
+            area,
+            frames: (0..count).map(|_| None).collect(),
+        });
+    }
+    let frames = graphics.frames.as_mut().expect("set above");
+    let Some(slot) = frames.frames.get_mut(index) else {
+        return;
+    };
+    if slot.is_none() {
+        let font = picker.font_size();
+        let canvas = render(
+            burst.style,
+            &burst.at(frame_time),
+            area.width as u32 * font.width as u32,
+            area.height as u32 * font.height as u32,
+        );
+        *slot = picker
+            .new_protocol(
+                DynamicImage::ImageRgba8(canvas),
+                area.as_size(),
+                Resize::Fit(None),
+            )
+            .ok();
+    }
+    if let Some(protocol) = slot {
+        frame.render_widget(ratatui_image::Image::new(protocol), area);
     }
 }
 
@@ -76,7 +193,7 @@ fn centered(area: Rect, width: u16, height: u16) -> Rect {
     }
 }
 
-fn draw_picker(frame: &mut Frame, area: Rect, picker: &Picker) {
+fn draw_picker(frame: &mut Frame, area: Rect, picker: &SnoozePicker) {
     let mut lines: Vec<Line> = Vec::new();
     match &picker.input {
         None => {
@@ -139,6 +256,26 @@ fn draw_title(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
 }
 
 fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
+    let empty = if app.show_snoozed {
+        app.snoozed.is_empty()
+    } else {
+        app.queue.is_empty()
+    };
+    if empty && app.updated_at.is_some() {
+        let message = if app.show_snoozed {
+            "Nothing snoozed"
+        } else {
+            "Nothing to review"
+        };
+        let [_, middle, _] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+        ])
+        .areas(area);
+        frame.render_widget(Paragraph::new(message).centered().bold(), middle);
+        return;
+    }
     let width = area.width as usize;
     let mut lines: Vec<ListItem> = Vec::new();
     let mut selected_line = None;
@@ -274,6 +411,7 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
             "In the snoozed view: end the snooze of the selected pull request",
         ),
         ("r", "Refresh the queue now"),
+        ("p", "Party: play a random particle burst"),
         ("? / esc", "Show or close this help page"),
         ("q", "Quit"),
     ];
@@ -310,14 +448,13 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
         Line::raw(format!("  working time   {}", config.working_time)),
         Line::raw(format!("  snooze file    {}", config.snooze_file)),
         Line::raw(format!("  token          {}", config.token_source)),
+        Line::raw(format!("  graphics       {}", config.graphics)),
     ]);
 
     let popup = centered(area, 96, lines.len() as u16 + 2);
     frame.render_widget(Clear, popup);
     frame.render_widget(
-        Paragraph::new(lines)
-            .wrap(Wrap { trim: false })
-            .block(Block::new().borders(Borders::ALL).title(" Help ")),
+        Paragraph::new(lines).block(Block::new().borders(Borders::ALL).title(" Help ")),
         popup,
     );
 }
