@@ -4,7 +4,6 @@
 use jiff::civil::Weekday;
 use jiff::{SignedDuration, Timestamp, Zoned};
 
-use crate::burst::{self, Burst};
 use crate::queue::QueueItem;
 use crate::snooze::{
     Snooze, SnoozeChoice, SnoozedItem, WorkingTime, apply_snoozes, parse_duration, snooze_until,
@@ -35,8 +34,6 @@ pub enum Action {
     ToggleSnoozedView,
     /// In the snoozed view, end the Snooze of the selected request.
     Unsnooze,
-    /// Play a burst of a random style.
-    Party,
     /// Move the focus between the list and the detail panel.
     ToggleFocus,
     /// Scroll the description 10 lines down, in the detail panel.
@@ -114,8 +111,6 @@ pub struct App {
     pub working: WorkingTime,
     /// The whole Queue from the last good poll, with the snoozed requests.
     all: Vec<QueueItem>,
-    /// The last burst, and when it started.
-    burst: Option<(Burst, Timestamp)>,
     snoozes: Vec<Snooze>,
 }
 
@@ -198,7 +193,6 @@ impl App {
                 | Action::Confirm
                 | Action::Cancel,
             ) => {}
-            Event::Action(Action::Party) => self.start_burst(now.timestamp()),
             Event::Action(Action::ToggleFocus) => {
                 self.panel_focused = !self.panel_focused && self.panel_shown;
             }
@@ -222,15 +216,11 @@ impl App {
                 return self.snooze_selected(SnoozeChoice::Dismiss, now);
             }
             Event::PollSucceeded { queue, at } => {
-                let had_requests = self.updated_at.is_some() && !self.queue.is_empty();
                 self.updated_at = Some(at);
                 self.error = None;
                 self.all = queue;
                 let before = self.snoozes.clone();
                 self.refresh_view(at);
-                if had_requests && self.queue.is_empty() {
-                    self.start_burst(at);
-                }
                 if self.snoozes != before {
                     return Effect::SaveSnoozes(self.snoozes.clone());
                 }
@@ -241,17 +231,6 @@ impl App {
     }
 
     /// The selected item in the view that shows: the Queue, or the snoozed requests.
-    /// The burst that plays at `now`, and the seconds since it started.
-    pub fn burst_at(&self, now: Timestamp) -> Option<(&Burst, f32)> {
-        let (burst, started_at) = self.burst.as_ref()?;
-        let t = now.duration_since(*started_at).as_secs_f32();
-        (t >= 0.0 && !burst.is_done(t)).then_some((burst, t))
-    }
-
-    fn start_burst(&mut self, now: Timestamp) {
-        self.burst = Some((burst::random(now.as_nanosecond() as u64), now));
-    }
-
     pub fn selected_item(&self) -> Option<&QueueItem> {
         if self.show_snoozed {
             self.snoozed.get(self.selected).map(|s| &s.item)
@@ -301,11 +280,6 @@ impl App {
         }
         if let Some(error) = &self.error {
             status.push_str(&format!(" · error: {error}"));
-        }
-        if let Some((burst, started_at)) = &self.burst
-            && now.duration_since(*started_at).as_secs_f32() < 3.0
-        {
-            status.push_str(&format!(" · {}", burst.style.name()));
         }
         status
     }

@@ -1,7 +1,6 @@
 pub mod app;
 pub mod auth;
 pub mod avatar;
-pub mod burst;
 pub mod config;
 pub mod details;
 pub mod github;

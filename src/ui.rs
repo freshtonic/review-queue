@@ -21,7 +21,6 @@ use ratatui::layout::Size;
 
 use crate::app::{App, Picker as SnoozePicker, short_duration};
 use crate::avatar;
-use crate::burst::{Burst, DURATION, render, render_ascii};
 use crate::details::{description_lines, detail_fields, panel_layout};
 use crate::queue::{CiStatus, PriorityTier, QueueItem};
 
@@ -45,16 +44,12 @@ const TIERS: [(PriorityTier, &str); 4] = [
     (PriorityTier::TeamFirstReview, "Team first review"),
 ];
 
-/// Frames per second of a burst.
-const BURST_FPS: f32 = 30.0;
-
-/// The terminal's raster graphics, and the burst frames that were made for it.
+/// The terminal's raster graphics, and the images that were made for it.
 pub struct Graphics {
     /// `None` when the terminal has no raster graphics, or with `--no-images`.
     picker: Option<Picker>,
     /// For the panel avatar when there are no raster graphics.
     halfblocks: Picker,
-    frames: Option<BurstFrames>,
     avatar_dir: PathBuf,
     /// The decoded avatars and their protocols. `None` when the file cannot be read.
     avatars: HashMap<String, Option<Avatar>>,
@@ -72,20 +67,11 @@ const PANEL_AVATAR: Size = Size {
     height: 6,
 };
 
-/// The frames of one burst, each made when it is first needed. With Kitty, each frame is
-/// uploaded once, the first time that it shows.
-struct BurstFrames {
-    started_at: Timestamp,
-    area: Rect,
-    frames: Vec<Option<Protocol>>,
-}
-
 impl Graphics {
     pub fn new(picker: Option<Picker>, avatar_dir: PathBuf) -> Self {
         Self {
             picker,
             halfblocks: Picker::halfblocks(),
-            frames: None,
             avatar_dir,
             avatars: HashMap::new(),
         }
@@ -148,7 +134,7 @@ impl Graphics {
             Some(ProtocolType::Kitty) => "kitty",
             Some(ProtocolType::Sixel) => "sixel",
             Some(ProtocolType::Iterm2) => "iterm2",
-            Some(ProtocolType::Halfblocks) | None => "none (ASCII)",
+            Some(ProtocolType::Halfblocks) | None => "none (text only)",
         }
     }
 }
@@ -205,11 +191,6 @@ pub fn draw(
     };
     frame.render_widget(Paragraph::new(keys).dark_gray(), footer);
 
-    if let Some((burst, t)) = app.burst_at(now) {
-        let started_at = now - jiff::SignedDuration::from_secs_f32(t);
-        draw_burst(frame, body, burst, t, started_at, graphics);
-    }
-
     if let Some(picker) = &app.picker {
         draw_picker(frame, body, picker);
     } else if app.show_help {
@@ -217,67 +198,6 @@ pub fn draw(
         draw_help(frame, frame.area(), config);
     }
     drawn
-}
-
-fn draw_burst(
-    frame: &mut Frame,
-    area: Rect,
-    burst: &Burst,
-    t: f32,
-    started_at: Timestamp,
-    graphics: &mut Graphics,
-) {
-    let index = (t * BURST_FPS) as usize;
-    let frame_time = index as f32 / BURST_FPS;
-    let Some(picker) = &graphics.picker else {
-        for cell in render_ascii(burst.style, &burst.at(frame_time), area.width, area.height) {
-            let [r, g, b] = cell.color;
-            frame.buffer_mut().set_string(
-                area.x + cell.col,
-                area.y + cell.row,
-                &cell.text,
-                Style::new().fg(Color::Rgb(r, g, b)).bold(),
-            );
-        }
-        return;
-    };
-
-    // The frames of another burst, or of another pane size, are not useful any more.
-    let same = graphics.frames.as_ref().is_some_and(|f| {
-        f.area == area
-            && f.started_at.duration_since(started_at).abs() < jiff::SignedDuration::from_millis(5)
-    });
-    if !same {
-        let count = (DURATION * BURST_FPS).ceil() as usize;
-        graphics.frames = Some(BurstFrames {
-            started_at,
-            area,
-            frames: (0..count).map(|_| None).collect(),
-        });
-    }
-    let frames = graphics.frames.as_mut().expect("set above");
-    let Some(slot) = frames.frames.get_mut(index) else {
-        return;
-    };
-    if slot.is_none() {
-        let font = picker.font_size();
-        let canvas = render(
-            burst.style,
-            &burst.at(frame_time),
-            area.width as u32 * font.width as u32,
-            area.height as u32 * font.height as u32,
-        );
-        *slot = picker
-            .new_protocol(
-                DynamicImage::ImageRgba8(canvas),
-                area.as_size(),
-                Resize::Fit(None),
-            )
-            .ok();
-    }
-    if let Some(protocol) = slot {
-        frame.render_widget(ratatui_image::Image::new(protocol), area);
-    }
 }
 
 /// A local time as the user reads it, for example "Fri 15:30".
@@ -686,8 +606,10 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
             "In the snoozed view: end the snooze of the selected pull request",
         ),
         ("r", "Refresh the queue now"),
-        ("p", "Party: play a random particle burst"),
-        ("tab", "Focus the detail panel (j/k, pgdn/pgup, space scroll), or go back"),
+        (
+            "tab",
+            "Focus the detail panel (j/k, pgdn/pgup, space scroll), or go back",
+        ),
         ("? / esc", "Show or close this help page"),
         ("q", "Quit"),
     ];

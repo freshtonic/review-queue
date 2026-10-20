@@ -25,7 +25,7 @@ struct Cli {
     #[arg(long, value_name = "SECONDS")]
     interval: Option<u64>,
 
-    /// Do not use raster graphics. Bursts use ASCII glyphs.
+    /// Do not use raster graphics.
     #[arg(long)]
     no_images: bool,
 }
@@ -142,8 +142,6 @@ async fn run(
     let mut poll_timer = tokio::time::interval(Duration::from_secs(config.interval_secs));
     // Redraw each second, so that the ages in the status bar and the rows stay current.
     let mut redraw_timer = tokio::time::interval(Duration::from_secs(1));
-    // Redraw at the burst frame rate while a burst plays.
-    let mut frame_timer = tokio::time::interval(Duration::from_millis(33));
     // Avatar downloads: the login, and whether the file was written.
     let (avatars_written, mut avatar_written) = mpsc::channel::<(String, bool)>(16);
     let mut avatars_in_flight: std::collections::HashSet<String> = Default::default();
@@ -221,7 +219,6 @@ async fn run(
                 None => Effect::None,
             },
             _ = redraw_timer.tick() => Effect::None,
-            _ = frame_timer.tick(), if app.burst_at(Timestamp::now()).is_some() => Effect::None,
         };
 
         match effect {
@@ -273,7 +270,6 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('d') => Some(Action::Dismiss),
         KeyCode::Char('z') => Some(Action::ToggleSnoozedView),
         KeyCode::Char('u') => Some(Action::Unsnooze),
-        KeyCode::Char('p') => Some(Action::Party),
         KeyCode::Char('q') => Some(Action::Quit),
         _ => None,
     }
