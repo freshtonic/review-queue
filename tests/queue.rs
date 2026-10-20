@@ -99,3 +99,54 @@ fn a_request_to_a_team_that_is_not_watched_is_not_in_the_queue() {
 
     assert!(queue.is_empty());
 }
+
+#[test]
+fn a_pull_request_that_requests_me_and_a_watched_team_is_one_personal_request() {
+    let both = requesting_team(
+        requesting_me(pr(1), "2026-10-02T09:00:00Z"),
+        "acme/core",
+        "2026-10-01T09:00:00Z",
+    );
+
+    let queue = build_queue(&[both], ME, &watched(&["acme/core"]));
+
+    assert_eq!(queue.len(), 1);
+    assert_eq!(queue[0].tier, PriorityTier::PersonalFirstReview);
+    assert_eq!(queue[0].team, None);
+    assert_eq!(queue[0].requested_at, at("2026-10-02T09:00:00Z"));
+}
+
+fn numbers(queue: &[review_queue::queue::QueueItem]) -> Vec<u64> {
+    queue.iter().map(|i| i.pull_request.number).collect()
+}
+
+#[test]
+fn the_queue_is_ordered_by_tier_personal_before_team_then_re_review_before_first_review() {
+    let team_first = requesting_team(pr(1), "acme/core", "2026-10-01T09:00:00Z");
+    let mut team_re = requesting_team(pr(2), "acme/core", "2026-10-01T09:00:00Z");
+    team_re.viewer_has_reviewed = true;
+    let personal_first = requesting_me(pr(3), "2026-10-01T09:00:00Z");
+    let mut personal_re = requesting_me(pr(4), "2026-10-01T09:00:00Z");
+    personal_re.viewer_has_reviewed = true;
+
+    let queue = build_queue(
+        &[team_first, team_re, personal_first, personal_re],
+        ME,
+        &watched(&["acme/core"]),
+    );
+
+    assert_eq!(numbers(&queue), vec![4, 3, 2, 1]);
+}
+
+#[test]
+fn in_a_tier_the_request_that_has_waited_longest_is_first() {
+    let prs = [
+        requesting_me(pr(1), "2026-10-03T09:00:00Z"),
+        requesting_me(pr(2), "2026-10-01T09:00:00Z"),
+        requesting_me(pr(3), "2026-10-02T09:00:00Z"),
+    ];
+
+    let queue = build_queue(&prs, ME, &[]);
+
+    assert_eq!(numbers(&queue), vec![2, 3, 1]);
+}

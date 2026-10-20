@@ -62,7 +62,7 @@ pub fn build_queue(
     viewer: &str,
     watched_teams: &[String],
 ) -> Vec<QueueItem> {
-    pull_requests
+    let mut queue: Vec<QueueItem> = pull_requests
         .iter()
         .filter_map(|pr| {
             let personal = pr
@@ -89,7 +89,9 @@ pub fn build_queue(
             };
             Some(item(pr, tier, request.requested_at, Some(team.clone())))
         })
-        .collect()
+        .collect();
+    queue.sort_by_key(|i| (i.tier, i.requested_at));
+    queue
 }
 
 fn item(
