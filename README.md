@@ -107,8 +107,10 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `d` | Dismiss: snooze the selected pull request for 1 working day |
 | `z` | Show or close the snoozed view |
 | `u` | In the snoozed view: end the snooze of the selected pull request |
+| `tab` | Move the focus to the detail panel, or back to the list |
+| `j`/`k`, `pgdn`/`pgup`, `space` | With the detail panel focused: scroll the description by 1 or 10 lines |
 | `?` | Show or close the help page and the current config |
-| `esc` | Close the help page, the snoozed view, or the snooze picker |
+| `esc` | Close the help page, the snoozed view, or the snooze picker, or give the focus back to the list |
 | `q` | Quit |
 
 In the snooze picker, push `1` to `9` to choose:

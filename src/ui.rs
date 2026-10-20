@@ -153,13 +153,22 @@ impl Graphics {
     }
 }
 
+/// What the shell must give back to the App after a draw.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Drawn {
+    pub panel_shown: bool,
+    /// The largest description scroll: the lines that do not fit.
+    pub max_scroll: usize,
+}
+
 pub fn draw(
     frame: &mut Frame,
     app: &App,
     now: Timestamp,
     config: &ConfigView,
     graphics: &mut Graphics,
-) {
+) -> Drawn {
+    let mut drawn = Drawn::default();
     let [title, body, footer] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Min(0),
@@ -176,11 +185,17 @@ pub fn draw(
     .areas(body);
     draw_queue(frame, list, app, now, graphics);
     if panel_height.is_some() {
-        draw_panel(frame, panel, app, now, graphics);
+        drawn = Drawn {
+            panel_shown: true,
+            max_scroll: draw_panel(frame, panel, app, now, graphics),
+        };
     }
     let keys = match &app.picker {
         Some(picker) if picker.input.is_some() => "type a duration · enter snooze · esc cancel",
         Some(_) => "1–9 choose · esc cancel",
+        None if app.panel_focused => {
+            "j/k scroll · pgdn/pgup page · tab/esc back to the list · q quit"
+        }
         None if app.show_snoozed => {
             "j/k move · enter open · s change · u unsnooze · z/esc back · ? help · q quit"
         }
@@ -201,6 +216,7 @@ pub fn draw(
         // The whole window, so that the config at the bottom has space.
         draw_help(frame, frame.area(), config);
     }
+    drawn
 }
 
 fn draw_burst(
@@ -427,14 +443,31 @@ fn draw_queue(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
     }
 }
 
-fn draw_panel(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics: &mut Graphics) {
+/// Draws the panel, and returns the largest description scroll.
+fn draw_panel(
+    frame: &mut Frame,
+    area: Rect,
+    app: &App,
+    now: Timestamp,
+    graphics: &mut Graphics,
+) -> usize {
+    let border = if app.panel_focused {
+        Style::new().fg(Color::Cyan).bold()
+    } else {
+        Style::new().fg(Color::DarkGray)
+    };
     let block = Block::new()
         .borders(Borders::TOP)
-        .border_style(Style::new().fg(Color::DarkGray));
+        .border_style(border)
+        .title(if app.panel_focused {
+            " Details · tab to go back "
+        } else {
+            " Details · tab to scroll "
+        });
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let Some(item) = app.selected_item() else {
-        return;
+        return 0;
     };
     let inner = Rect {
         x: inner.x + 1,
@@ -496,14 +529,33 @@ fn draw_panel(frame: &mut Frame, area: Rect, app: &App, now: Timestamp, graphics
     }
     frame.render_widget(Paragraph::new(lines), fields_area);
 
-    let mut text = vec![Line::styled("Description", Style::new().bold())];
     let room = (description_area.height as usize).saturating_sub(1);
-    let body = description_lines(&pr.details.body, description_area.width as usize, room);
+    let body = description_lines(
+        &pr.details.body,
+        description_area.width as usize,
+        usize::MAX,
+    );
+    let max_scroll = body.len().saturating_sub(room);
+    let scroll = app.description_scroll.min(max_scroll);
+    let mut heading = vec![Span::styled("Description", Style::new().bold())];
+    if max_scroll > 0 {
+        heading.push(Span::styled(
+            format!(
+                "  lines {}–{} of {}",
+                scroll + 1,
+                (scroll + room).min(body.len()),
+                body.len()
+            ),
+            Style::new().dark_gray(),
+        ));
+    }
+    let mut text = vec![Line::from(heading)];
     if body.is_empty() {
         text.push(Line::styled("No description.", Style::new().dark_gray()));
     }
-    text.extend(body.into_iter().map(Line::raw));
+    text.extend(body.into_iter().skip(scroll).take(room).map(Line::raw));
     frame.render_widget(Paragraph::new(text), description_area);
+    max_scroll
 }
 
 /// One row of the panel: the name in a fixed column, then the value. Labels show as
@@ -635,6 +687,7 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
         ),
         ("r", "Refresh the queue now"),
         ("p", "Party: play a random particle burst"),
+        ("tab", "Focus the detail panel (j/k, pgdn/pgup, space scroll), or go back"),
         ("? / esc", "Show or close this help page"),
         ("q", "Quit"),
     ];

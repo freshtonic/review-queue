@@ -176,7 +176,10 @@ async fn run(
     };
 
     loop {
-        terminal.draw(|frame| ui::draw(frame, &app, Timestamp::now(), &view, &mut graphics))?;
+        let mut drawn = ui::Drawn::default();
+        terminal
+            .draw(|frame| drawn = ui::draw(frame, &app, Timestamp::now(), &view, &mut graphics))?;
+        app.after_draw(drawn.panel_shown, drawn.max_scroll);
 
         let effect = tokio::select! {
             _ = poll_timer.tick() => {
@@ -260,7 +263,12 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('r') => Some(Action::Refresh),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
         KeyCode::Esc if app.show_help => Some(Action::ToggleHelp),
+        KeyCode::Esc if app.panel_focused => Some(Action::ToggleFocus),
         KeyCode::Esc if app.show_snoozed => Some(Action::ToggleSnoozedView),
+        KeyCode::Tab => Some(Action::ToggleFocus),
+        KeyCode::PageDown => Some(Action::PageDown),
+        KeyCode::PageUp => Some(Action::PageUp),
+        KeyCode::Char(' ') if app.panel_focused => Some(Action::PageDown),
         KeyCode::Char('s') => Some(Action::Snooze),
         KeyCode::Char('d') => Some(Action::Dismiss),
         KeyCode::Char('z') => Some(Action::ToggleSnoozedView),
