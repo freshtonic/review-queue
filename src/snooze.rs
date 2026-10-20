@@ -143,3 +143,35 @@ pub fn apply_snoozes(queue: Vec<QueueItem>, snoozes: &[Snooze], now: Timestamp) 
     }
     outcome
 }
+
+/// `$XDG_STATE_HOME/review-queue/snoozes.json`, or `~/.local/state/review-queue/snoozes.json`.
+pub fn store_path() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_STATE_HOME")
+        .filter(|v| !v.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+                .join(".local")
+                .join("state")
+        });
+    base.join("review-queue").join("snoozes.json")
+}
+
+/// Reads the Snoozes.
+pub fn load(path: &std::path::Path) -> Vec<Snooze> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+/// Writes the Snoozes.
+pub fn save(path: &std::path::Path, snoozes: &[Snooze]) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    // Write a temporary file, then rename it, so that a crash cannot leave half a file.
+    let temporary = path.with_extension("json.tmp");
+    std::fs::write(&temporary, serde_json::to_string_pretty(snoozes)?)?;
+    std::fs::rename(&temporary, path)
+}
