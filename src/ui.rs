@@ -56,7 +56,7 @@ pub struct Graphics {
     avatar_dir: PathBuf,
     /// The decoded avatars and their protocols. `None` when the file cannot be read.
     avatars: HashMap<String, Option<Avatar>>,
-    /// The empty-queue image, for the area size that it was made for.
+    /// The empty-queue image, for the size (in cells) that it was made for.
     attempt: Option<(Size, Protocol)>,
 }
 
@@ -297,31 +297,39 @@ fn draw_title(frame: &mut Frame, area: Rect, app: &App, now: Timestamp) {
     frame.render_widget(Paragraph::new(status).style(status_style), right);
 }
 
+/// The largest empty-queue image, in pixels. herdr does not show a Kitty image above a
+/// size limit (2304 x 2496 pixels did not show), and a very large image does not look
+/// better, so the image stops growing at this size and is centered in the pane.
+const MAX_ATTEMPT: (u32, u32) = (1024, 640);
+
 /// The "there was an attempt" image at the size of the area, or its text art, or else a
 /// short message.
 fn draw_attempt(frame: &mut Frame, area: Rect, graphics: &mut Graphics) {
     if let Some(picker) = &graphics.picker {
+        // At most MAX_ATTEMPT pixels, in whole cells, centered in the area.
+        let font = picker.font_size();
+        let (font_w, font_h) = (font.width.max(1), font.height.max(1));
+        let size = Size::new(
+            area.width.min((MAX_ATTEMPT.0 / font_w as u32) as u16),
+            area.height.min((MAX_ATTEMPT.1 / font_h as u32) as u16),
+        );
+        let place = centered(area, size.width, size.height);
         if graphics
             .attempt
             .as_ref()
-            .is_none_or(|(size, _)| *size != area.as_size())
+            .is_none_or(|(made_for, _)| *made_for != size)
         {
-            let font = picker.font_size();
             let image = attempt::render(
-                area.width as u32 * font.width as u32,
-                area.height as u32 * font.height as u32,
+                size.width as u32 * font_w as u32,
+                size.height as u32 * font_h as u32,
             );
             graphics.attempt = picker
-                .new_protocol(
-                    DynamicImage::ImageRgba8(image),
-                    area.as_size(),
-                    Resize::Fit(None),
-                )
+                .new_protocol(DynamicImage::ImageRgba8(image), size, Resize::Fit(None))
                 .ok()
-                .map(|protocol| (area.as_size(), protocol));
+                .map(|protocol| (size, protocol));
         }
         if let Some((_, protocol)) = &graphics.attempt {
-            frame.render_widget(ratatui_image::Image::new(protocol), area);
+            frame.render_widget(ratatui_image::Image::new(protocol), place);
             return;
         }
     }
