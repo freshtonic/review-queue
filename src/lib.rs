@@ -5,6 +5,7 @@ pub mod avatar;
 pub mod config;
 pub mod details;
 pub mod github;
+pub mod notify;
 pub mod queue;
 pub mod snooze;
 pub mod ui;

@@ -6,7 +6,8 @@ use jiff::SignedDuration;
 use jiff::civil::{Time, Weekday};
 use serde::Deserialize;
 
-use crate::queue::{Exclusions, LatenessThresholds};
+use crate::notify::NotifySettings;
+use crate::queue::{Exclusions, LatenessThresholds, parse_tier, tier_name};
 use crate::snooze::WorkingTime;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -30,6 +31,10 @@ pub struct Config {
     pub exclude_repos: Vec<String>,
     /// Authors whose pull requests are never shown in the Queue, as logins.
     pub exclude_authors: Vec<String>,
+    /// System notifications for new requests.
+    pub notifications: bool,
+    /// The tiers whose new requests give a notification, by name.
+    pub notify_tiers: Vec<String>,
 }
 
 impl Default for Config {
@@ -46,6 +51,12 @@ impl Default for Config {
             overdue_after_hours: 8,
             exclude_repos: Vec::new(),
             exclude_authors: Vec::new(),
+            notifications: true,
+            notify_tiers: NotifySettings::default()
+                .tiers
+                .into_iter()
+                .map(|tier| tier_name(tier).to_string())
+                .collect(),
         }
     }
 }
@@ -85,6 +96,24 @@ impl Config {
 }
 
 impl Config {
+    pub fn notify_settings(&self) -> Result<NotifySettings, String> {
+        let tiers = self
+            .notify_tiers
+            .iter()
+            .map(|name| {
+                parse_tier(name).ok_or_else(|| {
+                    format!(
+                        "{name:?} is not a tier. Use \"personal-re-review\", \"personal-first-review\", \"team-re-review\", or \"team-first-review\"."
+                    )
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(NotifySettings {
+            enabled: self.notifications,
+            tiers,
+        })
+    }
+
     pub fn exclusions(&self) -> Exclusions {
         Exclusions {
             repos: self.exclude_repos.clone(),

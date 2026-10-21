@@ -175,6 +175,18 @@ pub fn tier_name(tier: PriorityTier) -> &'static str {
     }
 }
 
+/// The tier with this name (as `tier_name` gives it).
+pub fn parse_tier(name: &str) -> Option<PriorityTier> {
+    [
+        PriorityTier::PersonalReReview,
+        PriorityTier::PersonalFirstReview,
+        PriorityTier::TeamReReview,
+        PriorityTier::TeamFirstReview,
+    ]
+    .into_iter()
+    .find(|&tier| tier_name(tier) == name)
+}
+
 /// The Queue as plain text for scripts, one line for each item, in Queue order. The
 /// fields are separated by tabs: tier, `repo#number`, title, author, Wait Time, and the
 /// Watched Team for a Team Request.
