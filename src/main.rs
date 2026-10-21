@@ -139,6 +139,9 @@ async fn main() -> ExitCode {
     };
 
     let terminal = ratatui::init();
+    // Capture the mouse, so that a wheel or trackpad over the detail panel scrolls the
+    // description. Without it, the terminal sends the wheel as arrow keys.
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture);
     // Keep the terminal's title on its title stack (XTWINOPS), to put it back at exit.
     print!("\x1b[22;0t");
     // Ask the terminal for its graphics protocol and font size. This needs the
@@ -153,6 +156,7 @@ async fn main() -> ExitCode {
     let graphics = Graphics::new(picker, avatar::cache_dir());
     view.graphics = graphics.description();
     let result = run(terminal, config, working, token, view, graphics).await;
+    let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
     ratatui::restore();
     print!("\x1b[23;0t");
     let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -249,6 +253,7 @@ async fn run(
         terminal
             .draw(|frame| drawn = ui::draw(frame, &app, Timestamp::now(), &view, &mut graphics))?;
         app.after_draw(drawn.panel_shown, drawn.max_scroll);
+        let panel_area = drawn.panel_area;
 
         let effect = tokio::select! {
             _ = poll_timer.tick() => {
@@ -285,10 +290,17 @@ async fn run(
                 }
                 Effect::None
             }
-            Some(Ok(TermEvent::Key(key))) = keys.next() => match action_for(key, &app) {
-                Some(action) => app.handle(Event::Action(action), &Zoned::now()),
-                None => Effect::None,
-            },
+            Some(Ok(event)) = keys.next() => {
+                let action = match event {
+                    TermEvent::Key(key) => action_for(key, &app),
+                    TermEvent::Mouse(mouse) => scroll_action(mouse, panel_area, &app),
+                    _ => None,
+                };
+                match action {
+                    Some(action) => app.handle(Event::Action(action), &Zoned::now()),
+                    None => Effect::None,
+                }
+            }
             _ = redraw_timer.tick() => Effect::None,
             _ = fade_timer.tick(), if !app.arrival_progress(Timestamp::now()).is_empty() => Effect::None,
         };
@@ -350,6 +362,28 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('z') => Some(Action::ToggleSnoozedView),
         KeyCode::Char('u') => Some(Action::Unsnooze),
         KeyCode::Char('q') => Some(Action::Quit),
+        _ => None,
+    }
+}
+
+/// A mouse wheel or trackpad: over the detail panel, it scrolls the description;
+/// elsewhere, it moves the selection.
+fn scroll_action(
+    mouse: crossterm::event::MouseEvent,
+    panel_area: Option<ratatui::layout::Rect>,
+    app: &App,
+) -> Option<Action> {
+    use crossterm::event::MouseEventKind;
+    if app.picker.is_some() || app.show_help {
+        return None;
+    }
+    let over_panel = panel_area
+        .is_some_and(|area| area.contains(ratatui::layout::Position::new(mouse.column, mouse.row)));
+    match (mouse.kind, over_panel) {
+        (MouseEventKind::ScrollDown, true) => Some(Action::ScrollDescriptionDown),
+        (MouseEventKind::ScrollUp, true) => Some(Action::ScrollDescriptionUp),
+        (MouseEventKind::ScrollDown, false) if !app.panel_focused => Some(Action::Down),
+        (MouseEventKind::ScrollUp, false) if !app.panel_focused => Some(Action::Up),
         _ => None,
     }
 }

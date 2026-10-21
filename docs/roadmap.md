@@ -57,3 +57,4 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
 - **Copy the link.** `y` copies the link that `Enter` opens, with OSC 52. The status bar says "copied the link" for 3 seconds.
 - **Paging.** A poll follows the pages of search results, up to 10 pages (1000 pull requests). If there are more, the status bar (and stderr, for `--once` and `--count`) says that not all requests are shown.
 - **Exclusions.** `exclude_repos` and `exclude_authors` in the config remove pull requests from the Queue completely (also from the snoozed view). The matches are exact, without regard to case.
+- **Wheel scrolling.** The tool captures the mouse. A wheel or trackpad over the detail panel scrolls the description 3 lines, without the focus; elsewhere it moves the selection.

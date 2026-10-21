@@ -46,6 +46,9 @@ pub enum Action {
     /// Scroll the description 10 lines down, in the detail panel.
     PageDown,
     PageUp,
+    /// Scroll the description 3 lines, without the focus (a mouse wheel or trackpad).
+    ScrollDescriptionDown,
+    ScrollDescriptionUp,
     /// Make the detail panel 10% of the height taller, or shorter.
     GrowPanel,
     ShrinkPanel,
@@ -237,6 +240,12 @@ impl App {
             }
             Event::Action(Action::ToggleAttempt) => self.show_attempt = !self.show_attempt,
             Event::Action(Action::PageDown | Action::PageUp) => {}
+            Event::Action(Action::ScrollDescriptionDown) => {
+                self.description_scroll = (self.description_scroll + 3).min(self.max_scroll);
+            }
+            Event::Action(Action::ScrollDescriptionUp) => {
+                self.description_scroll = self.description_scroll.saturating_sub(3);
+            }
             Event::Action(Action::GrowPanel) => self.panel_steps = (self.panel_steps + 1).min(3),
             Event::Action(Action::ShrinkPanel) => self.panel_steps = (self.panel_steps - 1).max(-3),
             Event::Action(Action::ToggleSnoozedView) => {

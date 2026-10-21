@@ -156,6 +156,8 @@ pub struct Drawn {
     pub panel_shown: bool,
     /// The largest description scroll: the lines that do not fit.
     pub max_scroll: usize,
+    /// Where the detail panel is, for the mouse wheel.
+    pub panel_area: Option<Rect>,
 }
 
 pub fn draw(
@@ -195,6 +197,7 @@ pub fn draw(
         drawn = Drawn {
             panel_shown: true,
             max_scroll: draw_panel(frame, panel, app, now, graphics),
+            panel_area: Some(panel),
         };
     }
     let keys = match &app.picker {

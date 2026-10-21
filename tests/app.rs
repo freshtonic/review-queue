@@ -758,3 +758,21 @@ fn the_status_warns_when_a_poll_did_not_get_all_the_results() {
     );
     assert!(!app.status(at("2026-10-20T09:01:05Z")).contains("not all"));
 }
+
+#[test]
+fn scrolling_the_description_moves_it_3_lines_without_the_focus_or_a_new_selection() {
+    let mut app = app_with(&[1, 2]);
+    app.after_draw(true, 5);
+
+    press(&mut app, Action::ScrollDescriptionDown);
+    assert_eq!(app.description_scroll, 3);
+    assert_eq!(selected_number(&app), Some(1));
+    assert!(!app.panel_focused);
+
+    press(&mut app, Action::ScrollDescriptionDown);
+    assert_eq!(app.description_scroll, 5);
+
+    press(&mut app, Action::ScrollDescriptionUp);
+    press(&mut app, Action::ScrollDescriptionUp);
+    assert_eq!(app.description_scroll, 0);
+}
