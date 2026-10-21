@@ -102,3 +102,26 @@ fn notice(item: &QueueItem) -> Notice {
         number: pr.number,
     }
 }
+
+/// The mute file, next to the Snooze file.
+pub fn mute_path() -> std::path::PathBuf {
+    crate::snooze::store_path().with_file_name("mute.json")
+}
+
+/// Reads the end of the mute. A missing or bad file is no mute.
+pub fn load_mute(path: &std::path::Path) -> Option<Timestamp> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Option<Timestamp>>(&text).ok())
+        .flatten()
+}
+
+/// Writes the end of the mute (`None`: not muted).
+pub fn save_mute(path: &std::path::Path, until: Option<Timestamp>) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let temporary = path.with_extension("json.tmp");
+    std::fs::write(&temporary, serde_json::to_string(&until)?)?;
+    std::fs::rename(&temporary, path)
+}

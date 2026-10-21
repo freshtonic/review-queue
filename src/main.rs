@@ -15,7 +15,7 @@ use review_queue::app::{Action, App, Effect, Event};
 use review_queue::config::{self, Config};
 use review_queue::snooze::WorkingTime;
 use review_queue::ui::{self, ConfigView, Graphics};
-use review_queue::{auth, avatar, github, queue, snooze};
+use review_queue::{auth, avatar, github, notify, queue, snooze};
 
 /// A terminal UI that shows the GitHub pull requests that are waiting for your review.
 #[derive(Parser)]
@@ -61,6 +61,10 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Err(e) = config.notify_settings() {
+        eprintln!("review-queue: {}: {e}", path.display());
+        return ExitCode::FAILURE;
+    }
 
     let env_token = std::env::var("GITHUB_TOKEN").ok();
     let token_source = if env_token.as_deref().is_some_and(|t| !t.trim().is_empty()) {
@@ -212,6 +216,9 @@ async fn run(
     let mut avatars_in_flight: std::collections::HashSet<String> = Default::default();
     let mut app = App::new(working, snooze::load(&snooze::store_path()));
     app.thresholds = config.lateness_thresholds();
+    // Checked at the start.
+    app.notify = config.notify_settings().unwrap_or_default();
+    app.set_muted_until(notify::load_mute(&notify::mute_path()));
     let mut poll_in_flight = false;
 
     let start_poll = |in_flight: &mut bool| {
@@ -311,6 +318,11 @@ async fn run(
             Effect::Copy(text) => copy_to_clipboard(&text),
             Effect::Refresh => start_poll(&mut poll_in_flight),
             Effect::Quit => return Ok(()),
+            Effect::SaveMute(until) => {
+                if let Err(e) = notify::save_mute(&notify::mute_path(), until) {
+                    app.error = Some(format!("cannot save the mute: {e}"));
+                }
+            }
             Effect::SaveSnoozes(snoozes) => {
                 if let Err(e) = snooze::save(&snooze::store_path(), &snoozes) {
                     app.error = Some(format!("cannot save snoozes: {e}"));
@@ -360,6 +372,7 @@ fn action_for(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('s') => Some(Action::Snooze),
         KeyCode::Char('d') => Some(Action::Dismiss),
         KeyCode::Char('z') => Some(Action::ToggleSnoozedView),
+        KeyCode::Char('m') => Some(Action::Mute),
         KeyCode::Char('u') => Some(Action::Unsnooze),
         KeyCode::Char('q') => Some(Action::Quit),
         _ => None,

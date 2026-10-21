@@ -4,6 +4,7 @@
 use jiff::civil::Weekday;
 use jiff::{SignedDuration, Timestamp, Zoned};
 
+use crate::notify::{Notice, NotifySettings, to_notify};
 use crate::queue::{LatenessThresholds, QueueItem};
 use crate::snooze::{
     Snooze, SnoozeChoice, SnoozedItem, WorkingTime, apply_snoozes, parse_duration, snooze_until,
@@ -49,6 +50,8 @@ pub enum Action {
     /// Scroll the description 3 lines, without the focus (a mouse wheel or trackpad).
     ScrollDescriptionDown,
     ScrollDescriptionUp,
+    /// Open the picker to mute notifications, or end the mute.
+    Mute,
     /// Make the detail panel 10% of the height taller, or shorter.
     GrowPanel,
     ShrinkPanel,
@@ -66,6 +69,11 @@ pub enum Event {
     PollFailed {
         error: String,
     },
+    /// The user clicked the notification for this pull request.
+    NotificationClicked {
+        repo: String,
+        number: u64,
+    },
 }
 
 /// What the shell must do after an event.
@@ -79,6 +87,8 @@ pub enum Effect {
     Quit,
     /// Write these Snoozes to the Snooze file.
     SaveSnoozes(Vec<Snooze>),
+    /// Write the end of the mute to the mute file (`None`: not muted).
+    SaveMute(Option<Timestamp>),
 }
 
 /// A choice in the snooze picker.
@@ -90,8 +100,18 @@ pub struct PickerChoice {
     choice: Option<SnoozeChoice>,
 }
 
+/// What the picker chooses a time for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickerPurpose {
+    /// The end of the Snooze of the selected request.
+    Snooze,
+    /// The end of the mute of notifications.
+    Mute,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Picker {
+    pub purpose: PickerPurpose,
     pub choices: Vec<PickerChoice>,
     /// The custom duration, while the user types it.
     pub input: Option<String>,
@@ -134,6 +154,12 @@ pub struct App {
     pub working: WorkingTime,
     /// When a request becomes Stale and Overdue.
     pub thresholds: LatenessThresholds,
+    /// Which tiers give notifications, and whether they are on.
+    pub notify: NotifySettings,
+    /// The end of the mute of notifications.
+    muted_until: Option<Timestamp>,
+    /// The notices from the last poll, for the shell to send.
+    notices: Vec<Notice>,
     /// True when the last good poll did not get all the results.
     incomplete: bool,
     /// When the user last copied a link, for the status bar notice.
@@ -225,7 +251,31 @@ impl App {
             Event::Action(Action::Quit) => return Effect::Quit,
             Event::Action(Action::Snooze) => {
                 if self.selected_item().is_some() {
-                    self.picker = Some(self.new_picker(now));
+                    self.picker = Some(self.new_picker(PickerPurpose::Snooze, now));
+                }
+            }
+            Event::Action(Action::Mute) => {
+                if self
+                    .muted_until
+                    .is_some_and(|until| until > now.timestamp())
+                {
+                    self.muted_until = None;
+                    return Effect::SaveMute(None);
+                }
+                self.picker = Some(self.new_picker(PickerPurpose::Mute, now));
+            }
+            Event::NotificationClicked { repo, number } => {
+                self.show_help = false;
+                self.show_attempt = false;
+                self.panel_focused = false;
+                let is_it =
+                    |i: &QueueItem| i.pull_request.repo == repo && i.pull_request.number == number;
+                if let Some(index) = self.queue.iter().position(is_it) {
+                    self.show_snoozed = false;
+                    self.selected = index;
+                } else if let Some(index) = self.snoozed.iter().position(|s| is_it(&s.item)) {
+                    self.show_snoozed = true;
+                    self.selected = index;
                 }
             }
             Event::Action(
@@ -276,11 +326,19 @@ impl App {
                 let before: Option<Vec<(String, u64)>> = self
                     .updated_at
                     .map(|_| self.queue.iter().map(key).collect());
+                let previous = self.updated_at.map(|_| std::mem::take(&mut self.all));
                 self.updated_at = Some(at);
                 self.error = None;
                 self.all = queue;
                 let snoozes_before = self.snoozes.clone();
                 self.refresh_view(at);
+                self.notices = to_notify(
+                    previous.as_deref(),
+                    &self.queue,
+                    &self.notify,
+                    self.muted_until,
+                    at,
+                );
                 self.arrivals
                     .retain(|(_, started)| at.duration_since(*started) < ARRIVAL);
                 if let Some(before) = before {
@@ -297,6 +355,21 @@ impl App {
             Event::PollFailed { error } => self.error = Some(error),
         }
         Effect::None
+    }
+
+    /// The notices from the last poll. Each one is given once.
+    pub fn take_notices(&mut self) -> Vec<Notice> {
+        std::mem::take(&mut self.notices)
+    }
+
+    /// The end of the mute of notifications. It can be in the past.
+    pub fn muted_until(&self) -> Option<Timestamp> {
+        self.muted_until
+    }
+
+    /// Sets the mute from the mute file, at the start.
+    pub fn set_muted_until(&mut self, until: Option<Timestamp>) {
+        self.muted_until = until;
     }
 
     /// The height of the detail panel, in percent of the body: 20 to 80, 50 at the start.
@@ -365,6 +438,15 @@ impl App {
         if !self.snoozed.is_empty() {
             status.push_str(&format!(" · {} snoozed", self.snoozed.len()));
         }
+        if let Some(until) = self.muted_until
+            && until > now
+        {
+            let local = until.to_zoned(jiff::tz::TimeZone::system());
+            status.push_str(&format!(
+                " · notifications muted until {}",
+                local.strftime("%a %H:%M")
+            ));
+        }
         if self.incomplete {
             let limit = crate::github::MAX_PAGES * 100;
             status.push_str(&format!(" · not all requests shown (over {limit})"));
@@ -395,8 +477,9 @@ impl App {
                     ..
                 }) => {
                     let choice = *choice;
+                    let purpose = picker.purpose;
                     self.picker = None;
-                    return self.snooze_selected(choice, now);
+                    return self.choose(purpose, choice, now);
                 }
                 Some(_) => picker.input = Some(String::new()),
                 None => {}
@@ -407,8 +490,9 @@ impl App {
             }
             (Some(input), Action::Confirm) => match parse_duration(input) {
                 Some(duration) => {
+                    let purpose = picker.purpose;
                     self.picker = None;
-                    return self.snooze_selected(SnoozeChoice::For(duration), now);
+                    return self.choose(purpose, SnoozeChoice::For(duration), now);
                 }
                 None => {
                     picker.error = Some("Type a duration such as 45m, 3h, 2d, or 1h30m.".into())
@@ -419,7 +503,18 @@ impl App {
         Effect::None
     }
 
-    fn new_picker(&self, now: &Zoned) -> Picker {
+    fn choose(&mut self, purpose: PickerPurpose, choice: SnoozeChoice, now: &Zoned) -> Effect {
+        match purpose {
+            PickerPurpose::Snooze => self.snooze_selected(choice, now),
+            PickerPurpose::Mute => {
+                let until = snooze_until(choice, now, &self.working);
+                self.muted_until = Some(until);
+                Effect::SaveMute(Some(until))
+            }
+        }
+    }
+
+    fn new_picker(&self, purpose: PickerPurpose, now: &Zoned) -> Picker {
         let choice = |label: String, choice: SnoozeChoice| PickerChoice {
             label,
             until: Some(snooze_until(choice, now, &self.working)),
@@ -456,6 +551,7 @@ impl App {
             choice: None,
         });
         Picker {
+            purpose,
             choices,
             input: None,
             error: None,

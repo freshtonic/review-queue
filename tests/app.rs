@@ -1,5 +1,5 @@
 use jiff::{Timestamp, Zoned};
-use review_queue::app::{Action, App, Effect, Event};
+use review_queue::app::{Action, App, Effect, Event, PickerPurpose};
 use review_queue::queue::{Author, PriorityTier, PullRequest, QueueItem};
 
 fn at(s: &str) -> Timestamp {
@@ -775,4 +775,118 @@ fn scrolling_the_description_moves_it_3_lines_without_the_focus_or_a_new_selecti
     press(&mut app, Action::ScrollDescriptionUp);
     press(&mut app, Action::ScrollDescriptionUp);
     assert_eq!(app.description_scroll, 0);
+}
+
+mod notifications {
+    use super::*;
+    use review_queue::notify::NotifySettings;
+
+    fn poll(app: &mut App, numbers: &[u64], at_time: &str) -> Effect {
+        app.handle(
+            Event::PollSucceeded {
+                queue: numbers.iter().map(|&n| item(n)).collect(),
+                at: at(at_time),
+                incomplete: false,
+            },
+            &now(),
+        )
+    }
+
+    #[test]
+    fn a_poll_with_a_new_request_leaves_a_notice_for_the_shell_to_take() {
+        let mut app = App::default();
+        poll(&mut app, &[1], "2026-10-20T23:00:00Z");
+        assert!(
+            app.take_notices().is_empty(),
+            "no notices at the first poll"
+        );
+
+        poll(&mut app, &[1, 2], "2026-10-20T23:01:00Z");
+        let notices = app.take_notices();
+        assert_eq!(
+            notices.iter().map(|n| n.number).collect::<Vec<_>>(),
+            vec![2]
+        );
+        assert!(app.take_notices().is_empty(), "taken once");
+    }
+
+    #[test]
+    fn mute_opens_the_picker_and_a_choice_mutes_until_that_time() {
+        let mut app = App::default();
+        poll(&mut app, &[1], "2026-10-20T23:00:00Z");
+
+        press(&mut app, Action::Mute);
+        let picker = app.picker.as_ref().expect("the picker opens");
+        assert_eq!(picker.purpose, PickerPurpose::Mute);
+        let until = picker.choices[0].until.unwrap(); // 1 hour
+        assert_eq!(
+            press(&mut app, Action::Choose(1)),
+            Effect::SaveMute(Some(until))
+        );
+        assert_eq!(app.muted_until(), Some(until));
+        assert!(app.picker.is_none());
+        let status = app.status(now().timestamp());
+        assert!(status.contains(" · notifications muted until "), "{status}");
+
+        // While muted, new requests give no notices.
+        poll(&mut app, &[1, 2], "2026-10-20T23:01:00Z");
+        assert!(app.take_notices().is_empty());
+
+        // Mute again ends the mute.
+        assert_eq!(press(&mut app, Action::Mute), Effect::SaveMute(None));
+        assert_eq!(app.muted_until(), None);
+        assert!(app.picker.is_none());
+    }
+
+    #[test]
+    fn mute_works_with_an_empty_queue() {
+        let mut app = App::default();
+        poll(&mut app, &[], "2026-10-20T23:00:00Z");
+        press(&mut app, Action::Mute);
+        assert!(app.picker.is_some());
+    }
+
+    #[test]
+    fn notifications_that_are_off_give_no_notices() {
+        let mut app = App::default();
+        app.notify = NotifySettings {
+            enabled: false,
+            ..NotifySettings::default()
+        };
+        poll(&mut app, &[1], "2026-10-20T23:00:00Z");
+        poll(&mut app, &[1, 2], "2026-10-20T23:01:00Z");
+        assert!(app.take_notices().is_empty());
+    }
+
+    #[test]
+    fn a_click_on_a_notification_selects_its_row_in_the_queue() {
+        let mut app = app_with(&[1, 2, 3]);
+        press(&mut app, Action::ToggleHelp);
+        press(&mut app, Action::ToggleSnoozedView);
+        app.handle(
+            Event::NotificationClicked {
+                repo: "acme/widgets".into(),
+                number: 3,
+            },
+            &now(),
+        );
+        assert_eq!(selected_number(&app), Some(3));
+        assert!(!app.show_snoozed && !app.show_help && !app.show_attempt);
+    }
+
+    #[test]
+    fn a_click_on_a_notification_for_a_snoozed_request_selects_it_in_the_snoozed_view() {
+        let mut app = app_with(&[1, 2]);
+        press(&mut app, Action::Down);
+        press(&mut app, Action::Dismiss); // Snoozes #2.
+        app.handle(
+            Event::NotificationClicked {
+                repo: "acme/widgets".into(),
+                number: 2,
+            },
+            &now(),
+        );
+        assert!(app.show_snoozed);
+        assert_eq!(selected_number(&app), Some(2));
+    }
 }

@@ -170,3 +170,22 @@ fn more_than_3_new_requests_give_3_notices_and_a_summary_that_selects_the_first_
         }
     );
 }
+
+#[test]
+fn the_mute_is_saved_and_loaded_and_a_missing_or_bad_file_is_no_mute() {
+    use review_queue::notify::{load_mute, save_mute};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state").join("mute.json");
+    assert_eq!(load_mute(&path), None);
+
+    let until = at("2026-10-21T12:00:00Z");
+    save_mute(&path, Some(until)).unwrap();
+    assert_eq!(load_mute(&path), Some(until));
+
+    save_mute(&path, None).unwrap();
+    assert_eq!(load_mute(&path), None);
+
+    std::fs::write(&path, "not json").unwrap();
+    assert_eq!(load_mute(&path), None);
+}

@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use image::ImageReader;
 use ratatui::layout::Size;
 
-use crate::app::{App, Picker as SnoozePicker, arrival_color, short_duration};
+use crate::app::{App, Picker as SnoozePicker, PickerPurpose, arrival_color, short_duration};
 use crate::details::{description_lines, detail_fields, panel_layout};
 use crate::queue::{CiStatus, PriorityTier, QueueItem};
 use crate::queue::{Lateness, lateness};
@@ -263,7 +263,10 @@ fn draw_picker(frame: &mut Frame, area: Rect, picker: &SnoozePicker) {
             }
         }
         Some(input) => {
-            lines.push(Line::raw(" Snooze for (for example 45m, 3h, 2d, 1h30m):"));
+            lines.push(Line::raw(match picker.purpose {
+                PickerPurpose::Snooze => " Snooze for (for example 45m, 3h, 2d, 1h30m):",
+                PickerPurpose::Mute => " Mute for (for example 45m, 3h, 2d, 1h30m):",
+            }));
             lines.push(Line::from(vec![
                 Span::raw(" > "),
                 Span::styled(format!("{input}▏"), Style::new().bold()),
@@ -279,7 +282,12 @@ fn draw_picker(frame: &mut Frame, area: Rect, picker: &SnoozePicker) {
     let popup = centered(area, 50, lines.len() as u16 + 2);
     frame.render_widget(Clear, popup);
     frame.render_widget(
-        Paragraph::new(lines).block(Block::new().borders(Borders::ALL).title(" Snooze ")),
+        Paragraph::new(lines).block(Block::new().borders(Borders::ALL).title(
+            match picker.purpose {
+                PickerPurpose::Snooze => " Snooze ",
+                PickerPurpose::Mute => " Mute notifications ",
+            },
+        )),
         popup,
     );
 }
