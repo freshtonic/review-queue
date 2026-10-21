@@ -49,6 +49,7 @@ fn draw_empty_queue(cols: u16, rows: u16, font: (u16, u16)) -> Sent {
         snooze_file: String::new(),
         token_source: "",
         graphics: "kitty",
+        notifications: String::new(),
     };
     let mut terminal = Terminal::new(TestBackend::new(cols, rows)).unwrap();
     terminal

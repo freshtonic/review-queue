@@ -8,7 +8,7 @@
 - Authentication: the token from `gh auth token`. If `GITHUB_TOKEN` is set, it overrides `gh`. If neither gives a token, stop and tell the user to run `gh auth login`.
 - Polling: one GraphQL request every 60 seconds by default (configurable). The `r` key refreshes now. The status bar shows the time since the last good update. If a poll fails, keep the last good Queue on the screen and show the error in the status bar.
 - Layout: the Queue is grouped under one header for each Priority Tier, with a count. Empty tiers stay on the screen. Each row shows the repository and pull request number, the title, the author, the diff size (+added −deleted), and the Wait Time. A Team Request also shows the Watched Team. A draft pull request shows a `draft` tag, and stays in its normal Priority Tier.
-- No bell and no desktop notification when a Review Request arrives.
+- No bell and no desktop notification when a Review Request arrives. (Changed in v1.3: see Notifications.)
 - The user's own pull requests never go in the Queue, even when a Watched Team is requested.
 - The `?` key shows a help page: all actions and their keys, a short description of how the Queue works, and below that, the current config.
 - Stack: `ratatui` + `crossterm`, `tokio`, `graphql_client` (with the GitHub schema checked in), `reqwest` (rustls), `serde` + TOML config at `~/.config/review-queue/config.toml`, `jiff` for time.
@@ -58,3 +58,5 @@ Graphics use the Kitty graphics protocol (Ghostty supports it). If the terminal 
 - **Paging.** A poll follows the pages of search results, up to 10 pages (1000 pull requests). If there are more, the status bar (and stderr, for `--once` and `--count`) says that not all requests are shown.
 - **Exclusions.** `exclude_repos` and `exclude_authors` in the config remove pull requests from the Queue completely (also from the snoozed view). The matches are exact, without regard to case.
 - **Wheel scrolling.** The tool captures the mouse. A wheel or trackpad over the detail panel scrolls the description 3 lines, without the focus; elsewhere it moves the selection.
+- **Notifications (macOS).** A system notification for each new request (a first request or a re-request) in the tiers of `notify_tiers` (default: personal re-review, personal first review, team re-review), when `notifications` is true (the default). No notifications at the first poll, for a Snooze that ends by time, or for snoozed and excluded requests. At most 3 for each poll, then one summary. A click brings the terminal app to the front and selects the row. `m` mutes notifications until a time from the snooze picker, or ends the mute; the mute is saved in `mute.json`. The tool must run from `review-queue.app` (`scripts/install-macos.sh`): see ADR 0002. `--test-notification` sends one for the last row, to check the setup.
+- **Help page scrolls.** `j`/`k` and the mouse wheel scroll the help page when it is taller than the window.

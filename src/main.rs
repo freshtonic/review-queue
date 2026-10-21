@@ -15,7 +15,7 @@ use review_queue::app::{Action, App, Effect, Event};
 use review_queue::config::{self, Config};
 use review_queue::snooze::WorkingTime;
 use review_queue::ui::{self, ConfigView, Graphics};
-use review_queue::{auth, avatar, github, notify, queue, snooze};
+use review_queue::{auth, avatar, github, notify, queue, snooze, system_notify};
 
 /// A terminal UI that shows the GitHub pull requests that are waiting for your review.
 #[derive(Parser)]
@@ -36,10 +36,39 @@ struct Cli {
     /// Print the number of pending requests, then exit.
     #[arg(long)]
     count: bool,
+
+    /// After the first poll, send a notification for the last row of the queue, to check
+    /// that notifications and clicks work.
+    #[arg(long)]
+    test_notification: bool,
 }
 
-#[tokio::main]
-async fn main() -> ExitCode {
+fn main() -> ExitCode {
+    // The tool runs on its own thread. On macOS, the main thread runs the main run loop,
+    // which delivers the clicks on notifications.
+    let tool = std::thread::spawn(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("cannot start the async runtime")
+            .block_on(tool_main())
+    });
+    system_notify::run_main_loop_until(|| tool.is_finished());
+    tool.join().unwrap_or(ExitCode::FAILURE)
+}
+
+async fn tool_main() -> ExitCode {
+    // A click on a notification can make macOS start a second copy of the app, with no
+    // terminal. The copy that runs in the terminal handles the click, so this one stops.
+    {
+        use std::io::IsTerminal;
+        if std::env::args().len() == 1
+            && !std::io::stdin().is_terminal()
+            && !std::io::stdout().is_terminal()
+        {
+            return ExitCode::SUCCESS;
+        }
+    }
     let cli = Cli::parse();
 
     let path = config::path();
@@ -140,6 +169,7 @@ async fn main() -> ExitCode {
         snooze_file: tilde(&snooze::store_path()),
         token_source,
         graphics: "",
+        notifications: String::new(),
     };
 
     let terminal = ratatui::init();
@@ -159,7 +189,16 @@ async fn main() -> ExitCode {
     };
     let graphics = Graphics::new(picker, avatar::cache_dir());
     view.graphics = graphics.description();
-    let result = run(terminal, config, working, token, view, graphics).await;
+    let result = run(
+        terminal,
+        config,
+        working,
+        token,
+        view,
+        graphics,
+        cli.test_notification,
+    )
+    .await;
     let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
     ratatui::restore();
     print!("\x1b[23;0t");
@@ -202,6 +241,7 @@ async fn run(
     token: String,
     view: ConfigView,
     mut graphics: Graphics,
+    mut test_notification: bool,
 ) -> std::io::Result<()> {
     let client = reqwest::Client::new();
     let (results, mut incoming) = mpsc::channel::<Event>(4);
@@ -214,10 +254,38 @@ async fn run(
     // Avatar downloads: the login, and whether the file was written.
     let (avatars_written, mut avatar_written) = mpsc::channel::<(String, bool)>(16);
     let mut avatars_in_flight: std::collections::HashSet<String> = Default::default();
+    // System notifications, and the clicks on them.
+    let (notifications_tx, mut notifications_rx) =
+        mpsc::unbounded_channel::<system_notify::Incoming>();
+    let notify_settings = config.notify_settings().unwrap_or_default();
+    let mut view = view;
+    let describe = |status: &system_notify::Status| {
+        if !notify_settings.enabled {
+            return "off (notifications = false)".to_string();
+        }
+        let tiers: Vec<&str> = notify_settings
+            .tiers
+            .iter()
+            .map(|&t| queue::tier_name(t))
+            .collect();
+        format!("{} · {}", status.describe(), tiers.join(", "))
+    };
+    let mut notify_status = if notify_settings.enabled {
+        system_notify::start(notifications_tx)
+    } else {
+        system_notify::Status::Unavailable("off")
+    };
+    view.notifications = describe(&notify_status);
+    // The terminal app, to bring it to the front after a click.
+    let terminal_app = std::env::var("__CFBundleIdentifier")
+        .ok()
+        .filter(|id| !id.is_empty() && !id.starts_with("com.freshtonic.review-queue"))
+        .unwrap_or_else(|| "com.mitchellh.ghostty".into());
+
     let mut app = App::new(working, snooze::load(&snooze::store_path()));
     app.thresholds = config.lateness_thresholds();
     // Checked at the start.
-    app.notify = config.notify_settings().unwrap_or_default();
+    app.notify = notify_settings.clone();
     app.set_muted_until(notify::load_mute(&notify::mute_path()));
     let mut poll_in_flight = false;
 
@@ -261,6 +329,7 @@ async fn run(
             .draw(|frame| drawn = ui::draw(frame, &app, Timestamp::now(), &view, &mut graphics))?;
         app.after_draw(drawn.panel_shown, drawn.max_scroll);
         let panel_area = drawn.panel_area;
+        app.set_help_max_scroll(drawn.help_max_scroll);
 
         let effect = tokio::select! {
             _ = poll_timer.tick() => {
@@ -287,7 +356,19 @@ async fn run(
                         });
                     }
                 }
-                app.handle(event, &Zoned::now())
+                let effect = app.handle(event, &Zoned::now());
+                if test_notification && let Some(last) = app.queue.last() {
+                    test_notification = false;
+                    system_notify::send(&notify::notice(last));
+                }
+                if notify_status == system_notify::Status::Allowed {
+                    for notice in app.take_notices() {
+                        system_notify::send(&notice);
+                    }
+                } else {
+                    app.take_notices();
+                }
+                effect
             }
             Some((login, written)) = avatar_written.recv() => {
                 // A failed download is tried again at the next poll.
@@ -308,6 +389,17 @@ async fn run(
                     None => Effect::None,
                 }
             }
+            Some(incoming) = notifications_rx.recv() => match incoming {
+                system_notify::Incoming::Clicked { repo, number } => {
+                    let _ = Command::new("open").args(["-b", &terminal_app]).spawn();
+                    app.handle(Event::NotificationClicked { repo, number }, &Zoned::now())
+                }
+                system_notify::Incoming::Status(status) => {
+                    notify_status = status;
+                    view.notifications = describe(&notify_status);
+                    Effect::None
+                }
+            },
             _ = redraw_timer.tick() => Effect::None,
             _ = fade_timer.tick(), if !app.arrival_progress(Timestamp::now()).is_empty() => Effect::None,
         };
@@ -387,8 +479,15 @@ fn scroll_action(
     app: &App,
 ) -> Option<Action> {
     use crossterm::event::MouseEventKind;
-    if app.picker.is_some() || app.show_help {
+    if app.picker.is_some() {
         return None;
+    }
+    if app.show_help {
+        return match mouse.kind {
+            MouseEventKind::ScrollDown => Some(Action::ScrollDescriptionDown),
+            MouseEventKind::ScrollUp => Some(Action::ScrollDescriptionUp),
+            _ => None,
+        };
     }
     let over_panel = panel_area
         .is_some_and(|area| area.contains(ratatui::layout::Position::new(mouse.column, mouse.row)));

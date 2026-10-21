@@ -132,6 +132,10 @@ pub struct App {
     /// The error from the last poll, if it failed.
     pub error: Option<String>,
     pub show_help: bool,
+    /// The first line of the help page that shows.
+    pub help_scroll: usize,
+    /// From the last draw: the largest help scroll.
+    help_max_scroll: usize,
     /// The snooze picker, while it is open.
     pub picker: Option<Picker>,
     /// True while the snoozed view shows.
@@ -210,6 +214,19 @@ impl App {
             if self.picker.is_some() {
                 return self.handle_picker(action, now);
             }
+            if self.show_help {
+                match action {
+                    Action::Down | Action::ScrollDescriptionDown => {
+                        self.help_scroll = (self.help_scroll + 1).min(self.help_max_scroll);
+                        return Effect::None;
+                    }
+                    Action::Up | Action::ScrollDescriptionUp => {
+                        self.help_scroll = self.help_scroll.saturating_sub(1);
+                        return Effect::None;
+                    }
+                    _ => {}
+                }
+            }
             if (self.show_help || self.show_attempt)
                 && matches!(
                     action,
@@ -225,7 +242,10 @@ impl App {
             }
         }
         match event {
-            Event::Action(Action::ToggleHelp) => self.show_help = !self.show_help,
+            Event::Action(Action::ToggleHelp) => {
+                self.show_help = !self.show_help;
+                self.help_scroll = 0;
+            }
             Event::Action(Action::Down) => {
                 self.selected = (self.selected + 1).min(self.view_len().saturating_sub(1));
             }
@@ -355,6 +375,12 @@ impl App {
             Event::PollFailed { error } => self.error = Some(error),
         }
         Effect::None
+    }
+
+    /// After each draw with the help page: the lines that do not fit.
+    pub fn set_help_max_scroll(&mut self, max: usize) {
+        self.help_max_scroll = max;
+        self.help_scroll = self.help_scroll.min(max);
     }
 
     /// The notices from the last poll. Each one is given once.

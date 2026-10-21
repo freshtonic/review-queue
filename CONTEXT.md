@@ -52,6 +52,14 @@ _Avoid_: Automated request
 A local, temporary hiding of a Review Request until a set time, or until a re-request or a personal @-mention ends it early. There is no permanent dismissal. A Snooze always ends, and the request comes back if it is still pending.
 _Avoid_: Dismiss, mute, hide
 
+**Notification**:
+A system notification that tells the user about a new Review Request (a first request or a re-request) in one of the Priority Tiers that the user chose. A Snooze that ends by time is not a new request.
+_Avoid_: Alert, bell
+
+**Mute**:
+A temporary pause of all Notifications until a set time. It hides no Review Request: that is a Snooze. Notifications that occur during a Mute are not sent later.
+_Avoid_: Do not disturb, silence
+
 **Queue**:
 All current Review Requests for the user, ordered by Priority Tier, then by longest Wait Time first. Inside each Priority Tier, Bot Requests come after all other requests.
 _Avoid_: Inbox, feed

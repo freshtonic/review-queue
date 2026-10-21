@@ -8,4 +8,5 @@ pub mod github;
 pub mod notify;
 pub mod queue;
 pub mod snooze;
+pub mod system_notify;
 pub mod ui;

@@ -890,3 +890,22 @@ mod notifications {
         assert_eq!(selected_number(&app), Some(2));
     }
 }
+
+#[test]
+fn down_and_up_scroll_the_help_page_up_to_its_last_line_and_closing_it_resets_the_scroll() {
+    let mut app = app_with(&[1, 2]);
+    press(&mut app, Action::ToggleHelp);
+    app.set_help_max_scroll(2);
+
+    press(&mut app, Action::Down);
+    press(&mut app, Action::ScrollDescriptionDown); // A wheel over the help page.
+    press(&mut app, Action::Down);
+    assert_eq!(app.help_scroll, 2);
+    assert_eq!(selected_number(&app), Some(1));
+
+    press(&mut app, Action::Up);
+    assert_eq!(app.help_scroll, 1);
+
+    press(&mut app, Action::ToggleHelp);
+    assert_eq!(app.help_scroll, 0);
+}

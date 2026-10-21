@@ -35,6 +35,14 @@ cargo install --path .
 
 This puts the `review-queue` binary in `~/.cargo/bin`. Make sure that this directory is on your `PATH`.
 
+**macOS, with notifications.** macOS sends notifications only for apps, so install the tool as an app instead:
+
+```sh
+scripts/install-macos.sh
+```
+
+This builds the tool, installs it as `~/Applications/review-queue.app` (signed ad hoc for this computer), and puts a `review-queue` script in `~/.cargo/bin` that runs it. Then open System Settings → Notifications → review-queue and turn on **Allow notifications**. To check the setup, run `review-queue --test-notification`: after the first poll, it sends a notification for the last row; click it, and the tool selects that row. Run the script again after each update.
+
 ## Build
 
 ```sh
@@ -71,6 +79,7 @@ Options:
 | `--interval <SECONDS>` | The time between two polls. The default is 60. This overrides the config file. |
 | `--no-images` | Do not use raster graphics. |
 | `--once` | Print the queue as tab-separated lines, then exit. The fields are the tier, `repo#number`, the title, the author, the wait time, and the team (for a team request). Snoozed requests are not printed. |
+| `--test-notification` | After the first poll, send a notification for the last row, to check that notifications and clicks work. |
 | `--count` | Print the number of pending requests, then exit. Use it in a shell prompt or a status bar. |
 
 ## Configuration
@@ -100,6 +109,12 @@ overdue_after_hours = 8
 # regard to case. Snooze and dismiss still work for one pull request at a time.
 exclude_repos = ["acme/legacy"]
 exclude_authors = ["renovate[bot]"]
+
+# System notifications for new requests (macOS, with the app install).
+notifications = true
+# The tiers whose new requests give a notification: "personal-re-review",
+# "personal-first-review", "team-re-review", "team-first-review".
+notify_tiers = ["personal-re-review", "personal-first-review", "team-re-review"]
 ```
 
 ## Help
@@ -119,13 +134,14 @@ Push `?` in the tool to see this help page. The help page also shows your curren
 | `s` | Snooze the selected pull request. In the snoozed view, change the end time of its snooze |
 | `d` | Dismiss: snooze the selected pull request for 1 working day |
 | `z` | Show or close the snoozed view |
+| `m` | Mute notifications until a time that you choose (the same choices as snooze). While muted, `m` ends the mute |
 | `u` | In the snoozed view: end the snooze of the selected pull request |
 | `a` | Preview the empty-queue image (`a` or `esc` closes it) |
 | `+` / `-` | Make the detail panel taller or shorter, in steps of 10% of the height (20% to 80%) |
 | Mouse wheel or trackpad | Over the detail panel: scroll the description by 3 lines. Over the list: move the selection |
 | `tab` | Move the focus to the detail panel, or back to the list |
 | `j`/`k`, `pgdn`/`pgup`, `space` | With the detail panel focused: scroll the description by 1 or 10 lines |
-| `?` | Show or close the help page and the current config |
+| `?` | Show or close the help page and the current config. `j`/`k` or the mouse wheel scroll it |
 | `esc` | Close the help page, the snoozed view, or the snooze picker, or give the focus back to the list |
 | `q` | Quit |
 
@@ -175,6 +191,8 @@ A review in any state (approved, changes requested, commented, or dismissed) cou
 **New arrivals.** When a pull request comes into the queue at a poll (for example, a new request, or a snooze that ended), its row flashes and fades back to normal in 1 second.
 
 **Empty queue.** When nothing waits for your review, the pane shows a hand-drawn star with a rainbow trail: "there was an attempt … to keep on top of PR reviews". With raster graphics (for example, Ghostty), the image is drawn at the size of the pane. In other terminals, and with `--no-images`, it is colored text art. Push `a` to preview it at any time. To iterate on the image, render it to a file: `cargo run --example attempt_png -- 1200 520 out.png`.
+
+**Notifications.** On macOS, with the app install, the tool sends a system notification for each new request in the tiers of `notify_tiers`: by default, personal re-reviews, personal first reviews, and team re-reviews. A re-request is a new request. There are no notifications when the tool starts, when a snooze ends by time, or for snoozed and excluded pull requests. One poll sends at most 3 notifications, then one summary for the rest. Click a notification to bring your terminal app to the front and select the pull request (in the snoozed view, if it is snoozed). Push `m` to mute notifications for a time; the status bar shows the end of the mute, and notifications during the mute are not sent later. The help page shows whether notifications are on. In herdr or tmux, the click does not change the focused pane.
 
 **Snooze.** A snooze hides a pull request until a time that you choose. Nothing is hidden forever: dismiss (`d`) is a snooze of 1 working day, at the same time on the next working day. A snooze ends early when either of these occurs after the snooze started:
 

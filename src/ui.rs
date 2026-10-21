@@ -40,6 +40,8 @@ pub struct ConfigView {
     pub token_source: &'static str,
     /// The raster graphics protocol, or "none (ASCII)".
     pub graphics: &'static str,
+    /// Whether notifications are on, and for which tiers.
+    pub notifications: String,
 }
 
 /// The color of a row that just arrived. It fades to the background in 1 second.
@@ -158,6 +160,8 @@ pub struct Drawn {
     pub max_scroll: usize,
     /// Where the detail panel is, for the mouse wheel.
     pub panel_area: Option<Rect>,
+    /// The largest help page scroll: the lines that do not fit.
+    pub help_max_scroll: usize,
 }
 
 pub fn draw(
@@ -198,6 +202,7 @@ pub fn draw(
             panel_shown: true,
             max_scroll: draw_panel(frame, panel, app, now, graphics),
             panel_area: Some(panel),
+            ..Drawn::default()
         };
     }
     let keys = match &app.picker {
@@ -220,7 +225,7 @@ pub fn draw(
         draw_picker(frame, body, picker);
     } else if app.show_help {
         // The whole window, so that the config at the bottom has space.
-        draw_help(frame, frame.area(), config);
+        drawn.help_max_scroll = draw_help(frame, frame.area(), config, app.help_scroll);
     }
     drawn
 }
@@ -716,7 +721,8 @@ fn truncate(text: &str, width: usize) -> String {
     }
 }
 
-fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
+/// Draws the help page from line `scroll`, and returns the largest scroll.
+fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView, scroll: usize) -> usize {
     let keys = [
         ("j / ↓", "Move the selection down"),
         ("k / ↑", "Move the selection up"),
@@ -745,6 +751,7 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
             "Focus the detail panel (j/k, pgdn/pgup, space scroll), or go back",
         ),
         ("+ / -", "Make the detail panel taller or shorter"),
+        ("m", "Mute notifications for a time, or end the mute"),
         ("? / esc", "Show or close this help page"),
         ("q", "Quit"),
     ];
@@ -784,12 +791,24 @@ fn draw_help(frame: &mut Frame, area: Rect, config: &ConfigView) {
         Line::raw(format!("  snooze file    {}", config.snooze_file)),
         Line::raw(format!("  token          {}", config.token_source)),
         Line::raw(format!("  graphics       {}", config.graphics)),
+        Line::raw(format!("  notifications  {}", config.notifications)),
     ]);
 
     let popup = centered(area, 96, lines.len() as u16 + 2);
+    let visible = popup.height.saturating_sub(2) as usize;
+    let max_scroll = lines.len().saturating_sub(visible);
+    let scroll = scroll.min(max_scroll);
+    let title = if max_scroll > 0 {
+        " Help · j/k scroll "
+    } else {
+        " Help "
+    };
     frame.render_widget(Clear, popup);
     frame.render_widget(
-        Paragraph::new(lines).block(Block::new().borders(Borders::ALL).title(" Help ")),
+        Paragraph::new(lines)
+            .scroll((scroll as u16, 0))
+            .block(Block::new().borders(Borders::ALL).title(title)),
         popup,
     );
+    max_scroll
 }

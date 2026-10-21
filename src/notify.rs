@@ -85,7 +85,8 @@ pub fn to_notify(
     notices
 }
 
-fn notice(item: &QueueItem) -> Notice {
+/// The notice for one request.
+pub fn notice(item: &QueueItem) -> Notice {
     let pr = &item.pull_request;
     let team = item.team.as_deref().unwrap_or_default();
     let title = match item.tier {
